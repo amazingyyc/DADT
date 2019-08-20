@@ -38,7 +38,7 @@ private:
   // if stop the background thread
   std::atomic<bool> worker_stopped_;
 
-  // after take the task from queue, it may not execute right now becuase some other process may not put smae some task
+  // after take the task from queue, it may not execute right now becuase some other process may not put same some task
   // so put it in register for tmp
   std::unordered_map<TaskKey, Task, TaskKeyHash, TaskKeyEqual> task_pool_;
 

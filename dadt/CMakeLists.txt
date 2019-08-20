@@ -25,6 +25,7 @@ set(DADT_HEADER_FILES
 	include/internal/task.h
 	include/internal/tensor_storage.h
 	include/internal/tensor.h
+  include/internal/thread_pool.h
   include/internal/internal.h
 )
 
@@ -39,6 +40,7 @@ set(DADT_SRC_FILES
 	src/internal/spin_lock.cc
 	src/internal/tensor_storage.cc
 	src/internal/tensor.cc
+  src/internal/thread_pool.cc
   src/internal/internal.cc
 )
 
