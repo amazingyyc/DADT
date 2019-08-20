@@ -1,2 +1,2 @@
 # DADT
-a Decentrilized Asynchronously Distribute Training framwork
+A Decentrilized Asynchronously Distributed Training framwork
