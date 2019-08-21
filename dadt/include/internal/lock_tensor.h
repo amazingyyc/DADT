@@ -16,15 +16,13 @@ namespace dadt {
  * at every different status the tensor should do different operator
  * 
  * the  lock tensor status transition steps
- * WaitForFill: the tensor has nothing, wait the compute thread to fill new gradient data
  * InFill: when compute thread begin to fill data, than the status become InFill
  * InAllReduce: alter fill new data, the tensor will put in a queue to do all reduce, at here the status become InAllReduce
  * WaitForFetch: alter reduce thread exhcange data cross all node the tensor status will become WaitForFetch
  * InFetch: the compute thread is fetch data from the tensor
- * alter finish fetch than status become WaitForFill to wait new data
+ * alter finish fetch than status become InFill
  */
 enum class LockTensorStatus: int {
-  WaitForFill  = 0, //wait the compute thread fill new data to this tensor
   InFill       = 1, // the compute thread is filling data to this tensor
   InExecute    = 2, // after fill new data than the tensor will be in put it a queue than will do allreduce or broadcast
   WaitForFetch = 3, //after all reduce the tensor will wait the compute to fetch back

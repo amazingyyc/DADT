@@ -6,7 +6,17 @@ namespace dadt {
 MPIAllReduceExecutor::MPIAllReduceExecutor(): buffer_(get_cpu_device()) {
 }
 
-std::shared_ptr<LockTensor> MPIAllReduceExecutor::get_interim_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+// if has already create a midway tensor
+std::shared_ptr<LockTensor> MPIAllReduceExecutor::has_midway_tensor(std::string name) {
+  if (tensor_pool_.find(name) != tensor_pool_.end()) {
+    return tensor_pool_[name];
+  }
+
+  return std::shared_ptr<LockTensor>();
+}
+
+
+std::shared_ptr<LockTensor> MPIAllReduceExecutor::midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it
     auto tensor = tensor_pool_[name];

@@ -110,15 +110,17 @@ public:
 
   // stop the back ground thread
   void stop_worker();
+  
+  std::shared_ptr<LockTensor> has_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType
-  std::shared_ptr<LockTensor> get_interim_tensor(TaskType task_type, 
-                                                std::string name, 
-                                                std::vector<int> dims, 
-                                                ElementType element_type);
+  std::shared_ptr<LockTensor> midway_tensor(TaskType task_type, 
+                                            std::string name, 
+                                            std::vector<int> dims, 
+                                            ElementType element_type);
 
   // put a task is async queue
-  void async_task(std::function<void()> &&task);
+  void async_job(std::function<void()> &&task);
 };
 
 }

@@ -15,10 +15,13 @@ private:
 public:
   MPIBroadCastExecutor();
 
+  // if has already create a midway tensor
+  std::shared_ptr<LockTensor> has_midway_tensor(std::string name) override;
+
   // a executor may need a interim tensor to store the data and every executor may need different device tensor
   // like MPI broadcast need cpu tesnor
   // the function is not thread safe
-  std::shared_ptr<LockTensor> get_interim_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
+  std::shared_ptr<LockTensor> midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
 
   void operator()(const Context &context, const std::vector<Task> &tasks) override;
 };

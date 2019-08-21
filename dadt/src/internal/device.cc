@@ -183,28 +183,6 @@ void Device::memcpy_to_gpu(void *dst, const void *src, size_t size) {
   allocator_->memcpy_to_gpu(dst, src, size);
 }
 
-// copy memory from other device
-void Device::memcpy_from_device(void *dst, const void *src, const size_t size, std::shared_ptr<Device> from_device) {
-  if (DeviceType::CPU == from_device->device_type()) {
-    allocator_->memcpy_from_cpu(dst, src, size);
-  } else if (DeviceType::GPU == from_device->device_type()) {
-    allocator_->memcpy_from_gpu(dst, src, size);
-  } else {
-    RUNTIME_ERROR("the device type is not support");
-  }
-}
-
-// copy memory to other device
-void Device::memcpy_to_device(void *dst, const void *src, const size_t size, std::shared_ptr<Device> to_device) {
-  if (DeviceType::CPU == to_device->device_type()) {
-    allocator_->memcpy_to_cpu(dst, src, size);
-  } else if (DeviceType::GPU == to_device->device_type()) {
-    allocator_->memcpy_to_gpu(dst, src, size);
-  } else {
-    RUNTIME_ERROR("the device type is not support");
-  }
-}
-
 std::shared_ptr<Device> cpu_device_;
 std::unordered_map<int, std::shared_ptr<Device>> gpu_device_;
 

@@ -134,12 +134,6 @@ public:
 
   // copy memory to gpu
   void memcpy_to_gpu(void *dst, const void *src, size_t size);
-
-  // copy memory from other device
-  void memcpy_from_device(void *dst, const void *src, const size_t size, std::shared_ptr<Device> from_device);
-
-  // copy memory to other device
-  void memcpy_to_device(void *dst, const void *src, const size_t size, std::shared_ptr<Device> to_device);
 };
 
 std::shared_ptr<Device> get_cpu_device();

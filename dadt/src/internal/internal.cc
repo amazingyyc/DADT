@@ -47,17 +47,26 @@ void local_barrier() {
   commander_.local_barrier();
 }
 
+std::shared_ptr<LockTensor> has_midway_tensor(TaskType task_type, std::string name) {
+  return commander_.has_midway_tensor(task_type, name);
+}
+
 // get a interim tensor by TaskType
-std::shared_ptr<LockTensor> get_interim_tensor(TaskType task_type, 
-                                              std::string name, 
-                                              std::vector<int> dims, 
-                                              ElementType element_type) {
-  return commander_.get_interim_tensor(task_type, name, dims, element_type);
+std::shared_ptr<LockTensor> midway_tensor(TaskType task_type, 
+                                          std::string name, 
+                                          std::vector<int> dims, 
+                                          ElementType element_type) {
+  return commander_.midway_tensor(task_type, name, dims, element_type);
+}
+
+// put a task in queue
+void enqueue_task(Task &&t) {
+  commander_.enqueue_task(std::move(t));
 }
 
 // put a task is async queue
-void async_task(std::function<void()> &&task) {
-  commander_.async_task(std::move(task));
+void async_job(std::function<void()> &&job) {
+  commander_.async_job(std::move(job));
 }
 
 }

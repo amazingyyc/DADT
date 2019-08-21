@@ -401,18 +401,25 @@ void Commander::stop_worker() {
   worker_thread_.join();
 }
 
-// get a interim tensor by TaskType
-std::shared_ptr<LockTensor> Commander::get_interim_tensor(TaskType task_type,
-                                                          std::string name,
-                                                          std::vector<int> dims,
-                                                          ElementType element_type) {
+std::shared_ptr<LockTensor> Commander::has_midway_tensor(TaskType task_type, std::string name) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-  return task_executors_[task_type]->get_interim_tensor(name, dims, element_type);
+  return task_executors_[task_type]->has_midway_tensor(name);
+}
+
+
+// get a interim tensor by TaskType
+std::shared_ptr<LockTensor> Commander::midway_tensor(TaskType task_type,
+                                                      std::string name,
+                                                      std::vector<int> dims,
+                                                      ElementType element_type) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
+  return task_executors_[task_type]->midway_tensor(name, dims, element_type);
 }
 
 // put a task is async queue
-void Commander::async_task(std::function<void()> &&task) {
+void Commander::async_job(std::function<void()> &&task) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
   async_queue_.enqueue(std::move(task));

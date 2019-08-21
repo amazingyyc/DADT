@@ -34,14 +34,19 @@ void barrier();
 // local barrier all process
 void local_barrier();
 
-// get a interim tensor by TaskType
-std::shared_ptr<LockTensor> get_interim_tensor(TaskType task_type, 
-                                              std::string name, 
-                                              std::vector<int> dims, 
-                                              ElementType element_type);
+std::shared_ptr<LockTensor> has_midway_tensor(TaskType task_type, std::string name);
 
-// put a task is async queue
-void async_task(std::function<void()> &&task);
+// get a interim tensor by TaskType
+std::shared_ptr<LockTensor> midway_tensor(TaskType task_type, 
+                                          std::string name, 
+                                          std::vector<int> dims, 
+                                          ElementType element_type);
+
+// put a task in queue
+void enqueue_task(Task &&t);
+
+// put a job is async queue
+void async_job(std::function<void()> &&job);
 
 }
 

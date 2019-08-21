@@ -20,7 +20,10 @@ private:
 public:
   MPIAllReduceExecutor();
 
-  std::shared_ptr<LockTensor> get_interim_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
+  // if has already create a midway tensor
+  std::shared_ptr<LockTensor> has_midway_tensor(std::string name) override;
+  
+  std::shared_ptr<LockTensor> midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
 
   void operator()(const Context &context, const std::vector<Task> &tasks) override;
 };

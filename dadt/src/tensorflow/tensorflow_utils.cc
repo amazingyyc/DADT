@@ -9,3 +9,40 @@ bool is_gpu_conext(OpKernelContext* context) {
 
   return false;
 }
+
+ElementType convert_dtype_to_element_type(DataType dtype) {
+  switch (dtype) {
+    case DT_UINT8:
+      return ElementType::from<uint8_t>();
+    case DT_INT8:
+      return ElementType::from<int8_t>();
+    case DT_UINT16:
+      return ElementType::from<uint16_t>();
+    case DT_INT16:
+      return ElementType::from<int16_t>();
+    case DT_INT32:
+      return ElementType::from<int32_t>();
+    case DT_INT64:
+      return ElementType::from<int64_t>();
+    case DT_FLOAT:
+      return ElementType::from<float>();
+    case DT_DOUBLE:
+      return ElementType::from<double>();
+    case DT_BOOL:
+      return ElementType::from<bool>();
+    default:
+      RUNTIME_ERROR("the dtype does not support");
+  }
+}
+
+std::vector<int> convert_tensor_shape_to_array(const TensorShape& shape) {
+  std::vector<int> dims;
+
+  for (auto d : shape) {
+    ARGUMENT_CHECK(d.size > 0, "shape dim must > 0");
+
+    dims.emplace_back(d.size);
+  }
+
+  return dims;
+}
