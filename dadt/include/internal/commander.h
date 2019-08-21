@@ -12,6 +12,7 @@
 #include "task.h"
 #include "context.h"
 #include "task_executor.h"
+#include "thread_pool.h"
 
 namespace dadt {
 
@@ -45,9 +46,14 @@ private:
   // this map used for record how many process has put same task in queue
   std::unordered_map<TaskKey, std::unordered_set<int>, TaskKeyHash, TaskKeyEqual> task_register_;
 
+  // for deep learning framwork like tensorflow
+  // we will use async op to do the braodcast and allreduce
+  // so use a thread pool to do the op
+  ThreadPool async_queue_;
+
 private:
   // initialize context
-  void initialize_context();
+  void init_context();
 
   // exchange string with special MPI_Comm
   // return is a string array corresponding the rank index
@@ -73,7 +79,7 @@ public:
   Commander();
 
   // init the commander
-  void initialize();
+  void init();
 
   // if the commander have been initialized
   bool initialized();
@@ -106,7 +112,13 @@ public:
   void stop_worker();
 
   // get a interim tensor by TaskType
-  std::shared_ptr<LockTensor> get_interim_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
+  std::shared_ptr<LockTensor> get_interim_tensor(TaskType task_type, 
+                                                std::string name, 
+                                                std::vector<int> dims, 
+                                                ElementType element_type);
+
+  // put a task is async queue
+  void async_task(std::function<void()> &&task);
 };
 
 }

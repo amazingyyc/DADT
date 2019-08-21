@@ -18,7 +18,7 @@ Commander::Commander() : initialized_(false), worker_stopped_(false) {}
 
 // initialize context
 // the funtion should call in background thread
-void Commander::initialize_context() {
+void Commander::init_context() {
   int thread_required = MPI_THREAD_MULTIPLE;
   int thread_provided;
 
@@ -242,7 +242,7 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
         if (if_execute_task(rank, task_type, name)) {
           auto key = std::make_tuple(task_type, name);
 
-          ARGUMENT_CHECK(task_pool_.find(key) != task_pool_.end(), "the task in not in task_pool");
+          ARGUMENT_CHECK(task_pool_.find(key) != task_pool_.end(), "the task not in task_pool");
 
           will_execute_tasks[task_type].emplace_back(task_pool_[key]);
 
@@ -259,14 +259,17 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
 }
 
 // init the commander
-void Commander::initialize() {
+void Commander::init() {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
+
+  // init thread pool
+  // only use 1 thread
+  async_queue_.init(1);
 
   // init a thread and wait finish init context
   worker_thread_ = std::thread(&Commander::worker_do_cycle, this);
 
-  while (false == initialized_) {/**just wait*/
-  }
+  while (false == initialized_) {/**just wait*/}
 }
 
 // if the commander have been initialized
@@ -318,6 +321,8 @@ void Commander::local_barrier() {
 
 // insert a message to message_queue_
 void Commander::enqueue_task(Task &&t) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
   auto ret = task_queue_.enqueue(t);
 
   ARGUMENT_CHECK(ret, "enqueue task to queue get error!");
@@ -374,7 +379,7 @@ void Commander::worker_do_task() {
 // used for background_thread_ to do the task
 void Commander::worker_do_cycle() {
   // init context
-  initialize_context();
+  init_context();
 
   while (false == worker_stopped_) {
     auto task_start_time = std::chrono::steady_clock::now();
@@ -404,6 +409,13 @@ std::shared_ptr<LockTensor> Commander::get_interim_tensor(TaskType task_type,
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
   return task_executors_[task_type]->get_interim_tensor(name, dims, element_type);
+}
+
+// put a task is async queue
+void Commander::async_task(std::function<void()> &&task) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
+  async_queue_.enqueue(std::move(task));
 }
 
 }
