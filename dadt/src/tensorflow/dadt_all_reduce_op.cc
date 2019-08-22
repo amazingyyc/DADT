@@ -22,30 +22,30 @@ public:
     auto &input = context->input(0);
 
     // for now only support float
-    OP_REQUIRES(context, DT_FLOAT == input.dtype(), errors::InvalidArgument("dadt only support float");
+    OP_REQUIRES(context, DT_FLOAT == input.dtype(), errors::InvalidArgument("dadt only support float"));
 
     // create output
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, input.shape(), &output));
 
     // get name
-    auto name = name();
+    auto midway_name = name();
 
-    auto midway_tensor = dadt::has_midway_tensor(name);
+    auto midway_tensor = dadt::has_midway_tensor(dadt::DADTAllReduce, midway_name);
 
     if (nullptr == midway_tensor) {
       auto dims = convert_tensor_shape_to_array(input.shape());
       auto element_type = convert_dtype_to_element_type(input.dtype());
 
-      midway_tensor = dadt::midway_tensor(DADTAllReduce, name, dims, element_type);
+      midway_tensor = dadt::midway_tensor(dadt::DADTAllReduce, midway_name, dims, element_type);
     }
 
     bool is_gpu = is_gpu_conext(context);
 
     // at async queue to wait tensor finish allreduce
-    dadt::async_job([name, &input, output, midway_tensor, is_gpu, done] {
+    dadt::async_job([midway_name, &input, output, midway_tensor, is_gpu, done] {
       // wait tensor become WaitForFetch than change it to InFetch
-      midway_tensor->wait(LockTensorStatus::WaitForFetch, LockTensorStatus::InFetch);
+      midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
 
       // copy data back to output
       if (is_gpu) {
@@ -55,7 +55,7 @@ public:
       }
 
       // change status from InFetch to InFill
-      midway_tensor->wait(LockTensorStatus::InFetch, LockTensorStatus::InFill);
+      midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InFill);
 
       // copy input to tesnor
       if (is_gpu) {
@@ -65,23 +65,42 @@ public:
       }
 
       // create allreduce task than put it in task queue
-      Task task;
+      dadt::Task task;
       task.task_type = dadt::DADTAllReduce;
-      task.name      = name;
+      task.name      = midway_name;
       task.tensor    = midway_tensor;
       
       task.done = [midway_tensor] {
-        midway_tensor.wait(LockTensorStatus::InExecute, LockTensorStatus::WaitForFetch);
+        midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
       };
 
       // change status from InFill to InExecute
-      midway_tensor->wait(LockTensorStatus::InFill, LockTensorStatus::InExecute);
+      midway_tensor->wait(dadt::LockTensorStatus::InFill, dadt::LockTensorStatus::InExecute);
 
       // put task in queue
-      dadt::enqueue(task);
+      dadt::enqueue_task(std::move(task));
 
       // say to tensorflow have finish the op
       done();
     });  
   }
 };
+
+// register to Device
+REGISTER_KERNEL_BUILDER(Name("DadtAllReduce").Device(DEVICE_CPU), DadtAllReduceOp);
+
+#ifdef HAVE_CUDA
+REGISTER_KERNEL_BUILDER(Name("DadtAllReduce").Device(DEVICE_GPU), DadtAllReduceOp);
+#endif
+
+REGISTER_OP("DadtAllReduce")
+    .Input("input: float")
+    .Output("output: float")
+    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
+      c->set_output(0, c->input(0));
+      return Status::OK();
+    })
+    .Doc(R"doc(
+        a dadt all reduce op, will all reduce the input with other rank.
+        )doc");
+

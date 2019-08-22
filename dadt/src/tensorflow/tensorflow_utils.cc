@@ -10,26 +10,26 @@ bool is_gpu_conext(OpKernelContext* context) {
   return false;
 }
 
-ElementType convert_dtype_to_element_type(DataType dtype) {
+dadt::ElementType convert_dtype_to_element_type(DataType dtype) {
   switch (dtype) {
     case DT_UINT8:
-      return ElementType::from<uint8_t>();
+      return dadt::ElementType::from<uint8_t>();
     case DT_INT8:
-      return ElementType::from<int8_t>();
+      return dadt::ElementType::from<int8_t>();
     case DT_UINT16:
-      return ElementType::from<uint16_t>();
+      return dadt::ElementType::from<uint16_t>();
     case DT_INT16:
-      return ElementType::from<int16_t>();
+      return dadt::ElementType::from<int16_t>();
     case DT_INT32:
-      return ElementType::from<int32_t>();
+      return dadt::ElementType::from<int32_t>();
     case DT_INT64:
-      return ElementType::from<int64_t>();
+      return dadt::ElementType::from<int64_t>();
     case DT_FLOAT:
-      return ElementType::from<float>();
+      return dadt::ElementType::from<float>();
     case DT_DOUBLE:
-      return ElementType::from<double>();
+      return dadt::ElementType::from<double>();
     case DT_BOOL:
-      return ElementType::from<bool>();
+      return dadt::ElementType::from<bool>();
     default:
       RUNTIME_ERROR("the dtype does not support");
   }

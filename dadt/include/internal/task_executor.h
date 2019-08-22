@@ -7,7 +7,6 @@
 #include "context.h"
 #include "lock_tensor.h"
 
-
 namespace dadt {
 
 class ITaskExecutor {

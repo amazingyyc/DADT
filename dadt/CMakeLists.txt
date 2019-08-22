@@ -2,14 +2,6 @@ cmake_minimum_required(VERSION 3.8)
 
 project(dadt LANGUAGES CXX)
 
-# c++11
-set(CMAKE_CXX_STANDARD 11)
-
-# if have cuda
-if (HAVE_CUDA)
-  add_definitions(-DHAVE_CUDA)
-endif()
-
 set(DADT_HEADER_FILES
   include/internal/commander.h
   include/internal/context.h
@@ -27,6 +19,8 @@ set(DADT_HEADER_FILES
 	include/internal/tensor.h
   include/internal/thread_pool.h
   include/internal/internal.h
+
+  include/tensorflow/tensorflow_utils.h
 )
 
 set(DADT_SRC_FILES
@@ -42,7 +36,16 @@ set(DADT_SRC_FILES
 	src/internal/tensor.cc
   src/internal/thread_pool.cc
   src/internal/internal.cc
+
+  src/tensorflow/tensorflow_utils.cc
+  src/tensorflow/dadt_broad_cast_op.cc
+  src/tensorflow/dadt_all_reduce_op.cc
 )
 
-add_library(dadt ${DADT_HEADER_FILES} ${DADT_SRC_FILES})
-target_link_libraries(dadt RapidJSON ${MPI_C_LIBRARIES})
+add_library(dadt SHARED ${DADT_HEADER_FILES} ${DADT_SRC_FILES})
+
+if (HAVE_CUDA)
+  target_link_libraries(dadt json11 ${MPI_C_LIBRARIES} ${TENSORFLOW_LIB_PATHS} ${CUDA_LIB_PATHS})
+else()
+  target_link_libraries(dadt json11 ${MPI_C_LIBRARIES} ${TENSORFLOW_LIB_PATHS})
+endif()
