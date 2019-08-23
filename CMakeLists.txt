@@ -2,23 +2,9 @@ cmake_minimum_required(VERSION 3.8)
 
 # c++11
 set(CMAKE_CXX_STANDARD 11)
-add_compile_options(-std=c++11)
 
 # find mpi
-if (WIN32)
-  if (NOT DEFINED MPI_INCLUDE_PATH)
-    set(MPI_INCLUDE_PATH "C:/Program\ Files\ (x86)/Microsoft\ SDKs/MPI/Include")
-  endif()
-
-  if (NOT DEFINED MPI_C_LIBRARIES)
-    set(MPI_C_LIBRARIES
-      "C:/Program\ Files\ (x86)/Microsoft SDKs/MPI/Lib/x64/msmpi.lib"
-      "C:/Program\ Files\ (x86)/Microsoft SDKs/MPI/Lib/x64/msmpifec.lib"
-      "C:/Program\ Files\ (x86)/Microsoft SDKs/MPI/Lib/x64/msmpifmc.lib")
-  endif()
-else()
-  find_package(MPI REQUIRED)
-endif()
+find_package(MPI REQUIRED)
 
 # mpi include path
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})

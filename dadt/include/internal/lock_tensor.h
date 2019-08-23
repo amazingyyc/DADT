@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <string>
+#include <memory>
+#include <cstring>
 
 #include "device.h"
 #include "task.h"

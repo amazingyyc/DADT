@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <functional>
+#include <memory>
+#include <cstring>
 
 #include "task.h"
 #include "element_type.h"

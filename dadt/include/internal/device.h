@@ -2,6 +2,8 @@
 #define DEVICE_H
 
 #include <iostream>
+#include <memory>
+#include <cstring>
 
 namespace dadt{
 

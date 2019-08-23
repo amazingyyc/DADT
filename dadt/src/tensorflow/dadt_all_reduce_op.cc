@@ -80,7 +80,7 @@ public:
       // put task in queue
       dadt::enqueue_task(std::move(task));
 
-      // say to tensorflow have finish the op
+      // tell tensorflow have finish the op
       done();
     });  
   }
