@@ -61,11 +61,11 @@ void Commander::init_context() {
   // read cycle time
   auto cycle_duration_ms = std::getenv(DADT_CYCLE_DURATION_MS);
   if (nullptr != cycle_duration_ms) {
-    context_.cycle_duration_millisecond = std::strtoll(cycle_duration_ms, nullptr, 10);
-    context_.cycle_duration_microsecond = context_.cycle_duration_millisecond * 1000;
+    context_.cycle_duration_ms = std::strtoll(cycle_duration_ms, nullptr, 10);
+    context_.cycle_duration_us = context_.cycle_duration_ms * 1000;
   } else {
-    context_.cycle_duration_millisecond = 5;
-    context_.cycle_duration_microsecond = context_.cycle_duration_millisecond * 1000;
+    context_.cycle_duration_ms = 5;
+    context_.cycle_duration_us = context_.cycle_duration_ms * 1000;
   }
 
   // set the flag
@@ -272,6 +272,21 @@ void Commander::init() {
   while (false == initialized_) {/**just wait*/}
 }
 
+// shutdown background thread
+void Commander::shutdown() {
+  ARGUMENT_CHECK(initialized_, "the commander has not initialized");
+
+  // stop async queue
+  async_queue_.stop();
+
+  // stop worker thread
+  worker_stopped_ = true;
+  worker_thread_.join();
+
+  // set flag
+  initialized_ = false;
+}
+
 // if the commander have been initialized
 bool Commander::initialized() {
   return initialized_.load();
@@ -388,17 +403,13 @@ void Commander::worker_do_cycle() {
 
     auto task_duration = std::chrono::steady_clock::now() - task_start_time;
 
-    if (task_duration < std::chrono::microseconds(context_.cycle_duration_microsecond)) {
-      std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_microsecond) - task_duration);
+    if (task_duration < std::chrono::microseconds(context_.cycle_duration_us)) {
+      std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_us) - task_duration);
     }
   }
-}
 
-void Commander::stop_worker() {
-  worker_stopped_ = true;
-
-  // wait worker stop
-  worker_thread_.join();
+  // finalize the mpi
+  MPI_CALL(MPI_Finalize());
 }
 
 std::shared_ptr<LockTensor> Commander::has_midway_tensor(TaskType task_type, std::string name) {
@@ -406,7 +417,6 @@ std::shared_ptr<LockTensor> Commander::has_midway_tensor(TaskType task_type, std
 
   return task_executors_[task_type]->has_midway_tensor(name);
 }
-
 
 // get a interim tensor by TaskType
 std::shared_ptr<LockTensor> Commander::midway_tensor(TaskType task_type,

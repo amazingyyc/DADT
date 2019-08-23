@@ -153,7 +153,7 @@ setup(
     author='Yan Yuanchi',
     author_email='amazingyyc@outlook.com',
     zip_safe=False,
-    packages=['dadt'],
+    packages=['dadt/tensorflow'],
     ext_modules=[CMakeExtension(name='dadt', build_for_gpu=False, cmake_dir='.')],
     cmdclass={'build_ext' : CMakeBuildExt},
 )

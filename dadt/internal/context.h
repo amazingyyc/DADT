@@ -46,8 +46,8 @@ struct Context {
   bool allreduce_average_disbale = false;
 
   // thread cycle duration milliseconds
-  int64_t cycle_duration_millisecond = 5;
-  int64_t cycle_duration_microsecond;
+  int64_t cycle_duration_ms = 5;
+  int64_t cycle_duration_us;
 };
 
 }

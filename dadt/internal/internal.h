@@ -12,8 +12,13 @@
 
 namespace dadt {
 
+extern "C" {
+
 // initialize dadt
 void init();
+
+// stop the background thread
+void shutdown();
 
 // id have been initialized
 bool initialized();
@@ -36,13 +41,13 @@ void barrier();
 // local barrier all process
 void local_barrier();
 
-std::shared_ptr<LockTensor> has_midway_tensor(TaskType task_type, std::string name);
+}
+
+// if have a midway tensor corresponding the tasktype
+std::shared_ptr<LockTensor> has_midway_tensor(TaskType, std::string);
 
 // get a interim tensor by TaskType
-std::shared_ptr<LockTensor> midway_tensor(TaskType task_type, 
-                                          std::string name, 
-                                          std::vector<int> dims, 
-                                          ElementType element_type);
+std::shared_ptr<LockTensor> midway_tensor(TaskType, std::string, std::vector<int>, dadt::ElementType);
 
 // put a task in queue
 void enqueue_task(Task &&t);

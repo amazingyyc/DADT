@@ -10,7 +10,6 @@ find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
 # include third_party 
-include_directories(third_party)
 include_directories(third_party/concurrentqueue)
 include_directories(third_party/json11)
 
@@ -26,10 +25,8 @@ if (HAVE_CUDA)
 endif()
 
 # dadt include
-include_directories(dadt)
-include_directories(dadt/include)
-include_directories(dadt/include/internal)
-include_directories(dadt/include/tensorflow)
+include_directories(dadt/internal)
+include_directories(dadt/tensorflow)
 
 # dadt module
 add_subdirectory(dadt)

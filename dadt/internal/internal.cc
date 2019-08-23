@@ -5,11 +5,16 @@
 namespace dadt {
 
 // the commander
-Commander commander_;
+dadt::Commander commander_;
 
 // initialize dadt
 void init() {
   commander_.init();
+}
+
+// stop the background thread
+void shutdown() {
+  commander_.shutdown();
 }
 
 // id have been initialized

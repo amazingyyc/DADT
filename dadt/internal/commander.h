@@ -81,6 +81,9 @@ public:
   // init the commander
   void init();
 
+  // shutdown background thread
+  void shutdown();
+
   // if the commander have been initialized
   bool initialized();
 
@@ -108,9 +111,6 @@ public:
   // used for background_thread_ to do the task
   void worker_do_cycle();
 
-  // stop the back ground thread
-  void stop_worker();
-  
   std::shared_ptr<LockTensor> has_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType

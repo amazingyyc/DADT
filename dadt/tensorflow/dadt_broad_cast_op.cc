@@ -34,7 +34,7 @@ public:
     auto element_type = convert_dtype_to_element_type(input.dtype());
 
     // get the interim tensor
-    auto tensor = dadt::midway_tensor(dadt::DADTBroadCast, midway_name, dims, element_type);
+    auto tensor = midway_tensor(dadt::DADTBroadCast, midway_name, dims, element_type);
 
     // copy input to interim tensor
     bool is_gpu = is_gpu_conext(context);
