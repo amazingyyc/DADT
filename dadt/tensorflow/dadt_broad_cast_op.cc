@@ -21,18 +21,15 @@ public:
     // get input
     auto &input = context->input(0);
 
-    // for now only sypport float
-    OP_REQUIRES(context, DT_FLOAT == input.dtype(), errors::InvalidArgument("dadt only support float"));
-
     // create output
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, input.shape(), &output));
 
     // get a interim tensor
-    auto midway_name = name();
-    auto dims        = convert_tensor_shape_to_array(input.shape());
+    auto midway_name  = name();
+    auto dims         = convert_tensor_shape_to_array(input.shape());
     auto element_type = convert_dtype_to_element_type(input.dtype());
-
+  
     // get the interim tensor
     auto tensor = midway_tensor(dadt::DADTBroadCast, midway_name, dims, element_type);
 
@@ -40,9 +37,9 @@ public:
     bool is_gpu = is_gpu_conext(context);
 
     if (is_gpu) {
-      tensor->copy_from_gpu(input.flat<float>().data());
+      tensor->copy_from_gpu(input.tensor_data().data());
     } else {
-      tensor->copy_from_cpu(input.flat<float>().data());
+      tensor->copy_from_cpu(input.tensor_data().data());
     }
 
     // create a task
@@ -54,14 +51,14 @@ public:
     task.done = [is_gpu, output, tensor, done] {
       // after broadcast should copy data to output
       if (is_gpu) {
-        tensor->copy_to_gpu(output->flat<float>().data());
+        tensor->copy_to_gpu((void*) output->tensor_data().data());
       } else {
-        tensor->copy_to_cpu(output->flat<float>().data());
+        tensor->copy_to_cpu((void*) output->tensor_data().data());
       }
 
       done();
     };
-
+    
     // put task in queue
     dadt::enqueue_task(std::move(task));
   }
@@ -75,8 +72,9 @@ REGISTER_KERNEL_BUILDER(Name("DadtBroadCast").Device(DEVICE_GPU), DadtBroadCastO
 #endif
 
 REGISTER_OP("DadtBroadCast")
-    .Input("input: float")
-    .Output("output: float")
+    .Attr("T: {bool, uint8, int8, uint16, int16, int32, int64, float16, float32, float64}")
+    .Input("input: T")
+    .Output("output: T")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
       return Status::OK();

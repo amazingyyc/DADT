@@ -24,6 +24,8 @@ dadt::ElementType convert_dtype_to_element_type(DataType dtype) {
       return dadt::ElementType::from<int32_t>();
     case DT_INT64:
       return dadt::ElementType::from<int64_t>();
+    case DT_HALF:
+      return dadt::ElementType::from<half>();
     case DT_FLOAT:
       return dadt::ElementType::from<float>();
     case DT_DOUBLE:

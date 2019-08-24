@@ -64,6 +64,15 @@ def local_barrier():
 def normalize_name(name):
     return re.sub('[^a-zA-Z0-9_]', '_', name)
 
+'''
+all reduce op, the allreduce is async op, so when firts call this function it will return 0 
+'''
+def all_reduce(tensor, name=None):
+  if name is None:
+    name = 'DadtAllReduce_{0}'.format(normalize_name(tensor.name))
+
+  return dadt_tf_module.dadt_all_reduce(tensor, name=name)
+
 '''broad the tensor from rank 0 to other rank'''
 def broad_cast(tensor, name=None):
   if name is None:

@@ -21,9 +21,6 @@ public:
     // get input and output
     auto &input = context->input(0);
 
-    // for now only support float
-    OP_REQUIRES(context, DT_FLOAT == input.dtype(), errors::InvalidArgument("dadt only support float"));
-
     // create output
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, input.shape(), &output));
@@ -49,9 +46,9 @@ public:
 
       // copy data back to output
       if (is_gpu) {
-        midway_tensor->copy_to_gpu(output->flat<float>().data());
+        midway_tensor->copy_to_gpu((void*) output->tensor_data().data());
       } else {
-        midway_tensor->copy_to_cpu(output->flat<float>().data());
+        midway_tensor->copy_to_cpu((void*) output->tensor_data().data());
       }
 
       // change status from InFetch to InFill
@@ -59,9 +56,9 @@ public:
 
       // copy input to tesnor
       if (is_gpu) {
-        midway_tensor->copy_from_gpu(input.flat<float>().data());
+        midway_tensor->copy_from_gpu(input.tensor_data().data());
       } else {
-        midway_tensor->copy_from_cpu(input.flat<float>().data());
+        midway_tensor->copy_from_cpu(input.tensor_data().data());
       }
 
       // create allreduce task than put it in task queue
@@ -94,8 +91,9 @@ REGISTER_KERNEL_BUILDER(Name("DadtAllReduce").Device(DEVICE_GPU), DadtAllReduceO
 #endif
 
 REGISTER_OP("DadtAllReduce")
-    .Input("input: float")
-    .Output("output: float")
+    .Attr("T: {float16, float32, float64}")
+    .Input("input: T")
+    .Output("output: T")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
       return Status::OK();

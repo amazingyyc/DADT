@@ -10,7 +10,10 @@
 #include "exception.h"
 #include "commander.h"
 #include "task.h"
+#include "task_executor.h"
 #include "lock_tensor.h"
+#include "mpi_all_reduce_executor.h"
+#include "mpi_broad_cast_executor.h"
 
 namespace dadt {
 
@@ -52,11 +55,12 @@ void Commander::init_context() {
 
   context_.is_cross_leader = (0 == context_.cross_rank);
 
-  // read environment variable DADT_ALLREDUCE_AVERAGE_DISABLE
-  auto allreduce_average_disable = std::getenv(DADT_ALLREDUCE_AVERAGE_DISABLE);
-  if (nullptr != allreduce_average_disable) {
-    context_.allreduce_average_disbale = true;
-  }
+  // create float16 data type
+  MPI_Datatype MPI_FLOAT16_T;
+  MPI_Type_contiguous(2, MPI_BYTE, &MPI_FLOAT16_T);
+  MPI_Type_commit(&MPI_FLOAT16_T);
+
+  context_.MPI_FLOAT16_T = MPI_FLOAT16_T;
 
   // read cycle time
   auto cycle_duration_ms = std::getenv(DADT_CYCLE_DURATION_MS);
@@ -67,6 +71,13 @@ void Commander::init_context() {
     context_.cycle_duration_ms = 5;
     context_.cycle_duration_us = context_.cycle_duration_ms * 1000;
   }
+
+  // create task excutor
+  // all reduce executor
+  task_executors_[DADTAllReduce] = std::make_shared<MPIAllReduceExecutor>();
+
+  // broad cast executor
+  task_executors_[DADTBroadCast] = std::make_shared<MPIBroadCastExecutor>();
 
   // set the flag
   initialized_ = true;
@@ -189,7 +200,7 @@ bool Commander::if_execute_task(int rank, TaskType task_type, std::string name) 
   task_register_[key].insert(rank);
 
   if (context_.world_size == task_register_[key].size()) {
-    task_register_[key].clear();
+    task_register_.erase(key);
     return true;
   }
 
@@ -344,7 +355,9 @@ void Commander::enqueue_task(Task &&t) {
 }
 
 // get the message from the queue and allreduce cross all node
-void Commander::worker_do_task() {
+bool Commander::worker_do_task() {
+  bool has_task = false;
+
   std::vector<Task> tasks;
 
   // step 1: get all task from the queue
@@ -359,6 +372,10 @@ void Commander::worker_do_task() {
 
   // step2, exchange with other node
   auto execute_tasks = exchange_execute_tasks(tasks);
+
+  // if the queue still have task or the task_pool has left task
+  // set has_task to be true
+  has_task = !tasks.empty() || !task_pool_.empty();
 
   // for now every process have some task that will be executed
   // step3, sort the the tasks by TaskType
@@ -389,6 +406,9 @@ void Commander::worker_do_task() {
       t.done();
     }
   }
+
+  // tell the thread if have left task
+  return has_task;
 }
 
 // used for background_thread_ to do the task
@@ -396,15 +416,22 @@ void Commander::worker_do_cycle() {
   // init context
   init_context();
 
-  while (false == worker_stopped_) {
+  while (true) {
     auto task_start_time = std::chrono::steady_clock::now();
 
-    worker_do_task();
+    // do the task
+    auto has_task = worker_do_task();
 
     auto task_duration = std::chrono::steady_clock::now() - task_start_time;
 
     if (task_duration < std::chrono::microseconds(context_.cycle_duration_us)) {
-      std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_us) - task_duration);
+      // std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_us) - task_duration);
+      std::this_thread::sleep_for(std::chrono::microseconds(50000));
+    }
+
+    // if there not left task and the worker has been stopped, will jump outof loop
+    if (false == has_task && true == worker_stopped_) {
+      break;
     }
   }
 

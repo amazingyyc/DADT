@@ -8,10 +8,6 @@
 namespace dadt {
 
 class MPIBroadCastExecutor: public ITaskExecutor {
-private:
-  // a cpu memory buffer
-  MemoryBuffer buffer_;
-
 public:
   MPIBroadCastExecutor();
 

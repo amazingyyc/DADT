@@ -2,7 +2,7 @@
 
 namespace dadt {
 
-MPIBroadCastExecutor::MPIBroadCastExecutor(): buffer_(get_cpu_device()) {
+MPIBroadCastExecutor::MPIBroadCastExecutor() {
 }
 
 // if has already create a midway tensor
@@ -29,47 +29,17 @@ std::shared_ptr<LockTensor> MPIBroadCastExecutor::midway_tensor(std::string name
 }
 
 void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
-  void *sendbuf = nullptr;
-  int count = 0;
+  // for broad cast we will broad one by one
+  for (auto &task : tasks) {
+    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type(), "MPIBroadCastExecutor only support CPU tensor");
 
-  // if the tensor count > 1 or it is a GPU tensor, copy to memorybuffer
-  if (tasks.size() > 1 || DeviceType::CPU != tasks[0].tensor->device()->device_type()) {
-    size_t memory_size = 0;
+    void *sendbuf = task.tensor->ptr();;
+    int count     = task.tensor->size();
 
-    for (auto &t : tasks) {
-      count += t.tensor->size();
-      memory_size += t.tensor->num_bytes();
-    }
+    auto mpi_dtype = mpi_data_type(context, task.tensor->element_type());
 
-    // reserve enough memory
-    buffer_.reserve(memory_size);
-
-    // copy tensor to buffer
-    size_t offset = 0;
-
-    for (auto &t : tasks) {
-      t.tensor->copy_to_cpu(buffer_.ptr(offset));
-
-      offset += t.tensor->num_bytes();
-    }
-
-    sendbuf = buffer_.ptr();
-  } else {
-    sendbuf = tasks[0].tensor->ptr();
-    count   = tasks[0].tensor->size();
-  }
-
-  // broad cast
-  MPI_CALL(MPI_Bcast(sendbuf, count, MPI_FLOAT, 0, context.world_comm));
-
-  if (tasks.size() > 1 || DeviceType::CPU != tasks[0].tensor->device()->device_type()) {
-    size_t offset = 0;
-
-    for (auto &t : tasks) {
-      t.tensor->copy_from_cpu(buffer_.ptr(offset));
-
-      offset += t.tensor->num_bytes();
-    }
+    // broad cast from rank 0
+    MPI_CALL(MPI_Bcast(sendbuf, count, mpi_dtype, 0, context.world_comm));
   }
 }
 

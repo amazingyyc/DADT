@@ -42,15 +42,26 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::midway_tensor(std::string name
 }
 
 void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
-  void *recvbuf = nullptr;
-  int count = 0;
+  // mpi all reduce only support cpu tensor and float
+  auto element_type = tasks[0].tensor->element_type();
 
-  if (tasks.size() > 1 || DeviceType::CPU != tasks[0].tensor->device()->device_type()) {
+  ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(), "MPIAllReduceExecutor only support float/double");
+
+  for (auto &task : tasks) {
+    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() && 
+                  element_type == task.tensor->element_type(), 
+                  "mpi all reduce only support cpu tensor, element type must be float/double")
+  }
+
+  void *recvbuf = nullptr;
+  int count     = 0;
+
+  if (tasks.size() > 1) {
     size_t memory_size = 0;
 
-    for (auto &t : tasks) {
-      count += t.tensor->size();
-      memory_size += t.tensor->num_bytes();
+    for (auto &task : tasks) {
+      count       += task.tensor->size();
+      memory_size += task.tensor->num_bytes();
     }
 
     // reserve enough memory
@@ -59,10 +70,10 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     // copy tensor to buffer
     size_t offset = 0;
 
-    for (auto &t : tasks) {
-      t.tensor->copy_to_cpu(buffer_.ptr(offset));
+    for (auto &task : tasks) {
+      task.tensor->copy_to_cpu(buffer_.ptr(offset));
 
-      offset += t.tensor->num_bytes();
+      offset += task.tensor->num_bytes();
     }
 
     recvbuf = buffer_.ptr();
@@ -71,17 +82,19 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     count   = tasks[0].tensor->size();
   }
 
+  auto mpi_dtype = mpi_data_type(context, tasks[0].tensor->element_type());
+
   // do all reduce
-  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recvbuf, count, MPI_FLOAT, MPI_SUM, context.world_comm));
+  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recvbuf, count, mpi_dtype, MPI_SUM, context.world_comm));
 
   // copy back to tensor
-  if (tasks.size() > 1 || DeviceType::CPU != tasks[0].tensor->device()->device_type()) {
+  if (tasks.size() > 1) {
     size_t offset = 0;
 
-    for (auto &t : tasks) {
-      t.tensor->copy_from_cpu(buffer_.ptr(offset));
+    for (auto &task : tasks) {
+      task.tensor->copy_from_cpu(buffer_.ptr(offset));
 
-      offset += t.tensor->num_bytes();
+      offset += task.tensor->num_bytes();
     }
   }
 }

@@ -42,9 +42,9 @@ struct Context {
   // is cross leader
   bool is_cross_leader;
 
-  // if disable average the gradient after all reduce
-  bool allreduce_average_disbale = false;
-
+  // create a flaot16 data type for mpi
+  MPI_Datatype MPI_FLOAT16_T;
+  
   // thread cycle duration milliseconds
   int64_t cycle_duration_ms = 5;
   int64_t cycle_duration_us;

@@ -73,7 +73,8 @@ private:
   std::unordered_map<TaskType, std::vector<Task>> exchange_execute_tasks(std::vector<Task> &tasks);
 
   // loop to get task from queue and do the task
-  void worker_do_task();
+  // if have task left in pool return true
+  bool worker_do_task();
 
 public:
   Commander();

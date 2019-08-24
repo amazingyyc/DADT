@@ -2,8 +2,20 @@
 #define ELEMENT_TYEP_H
 
 #include <iostream>
+#include <mpi.h>
 
 #include "exception.h"
+
+// define the half
+#ifndef HAVE_CUDA
+typedef struct half_ {
+  uint16_t value;
+} half;
+#endif
+
+// define a unknow type
+class UnKnownDType {
+};
 
 namespace dadt {
 
@@ -18,13 +30,9 @@ enum class DType : int32_t {
   Int32   = 7,
   Uint64  = 8,
   Int64   = 9,
-  // Float16 = 10,
+  Float16 = 10,
   Float32 = 11,
   Float64 = 12,
-};
-
-// define a unknow type
-class UnKnownType {
 };
 
 class ElementType {
@@ -68,7 +76,7 @@ public:
   }
 };
 
-template <> inline bool ElementType::is<UnKnownType>() const {
+template <> inline bool ElementType::is<UnKnownDType>() const {
   return this->id_ == DType::UnKnown;
 }
 
@@ -108,6 +116,10 @@ template <> inline bool ElementType::is<int64_t>() const {
   return this->id_ == DType::Int64;
 }
 
+template <> inline bool ElementType::is<half>() const {
+  return this->id_ == DType::Float16;
+}
+
 template <> inline bool ElementType::is<float>() const {
   return this->id_ == DType::Float32;
 }
@@ -116,7 +128,7 @@ template <> inline bool ElementType::is<double>() const {
   return this->id_ == DType::Float64;
 }
 
-template <> inline ElementType ElementType::from<UnKnownType>() {
+template <> inline ElementType ElementType::from<UnKnownDType>() {
   return ElementType(DType::UnKnown, 0, "unknown");
 }
 
@@ -154,6 +166,10 @@ template <> inline ElementType ElementType::from<uint64_t>() {
 
 template <> inline ElementType ElementType::from<int64_t>() {
   return ElementType(DType::Int64, sizeof(int64_t), "int64_t");
+}
+
+template <> inline ElementType ElementType::from<half>() {
+  return ElementType(DType::Float16, sizeof(half), "float16");
 }
 
 template <> inline ElementType ElementType::from<float>() {

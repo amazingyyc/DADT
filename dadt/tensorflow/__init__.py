@@ -12,4 +12,5 @@ from dadt.tensorflow.ops import local_rank
 from dadt.tensorflow.ops import barrier
 from dadt.tensorflow.ops import local_barrier
 from dadt.tensorflow.ops import broad_cast
+from dadt.tensorflow.ops import all_reduce
 from dadt.tensorflow.ops import BroadcastTrainableVariablesHook
