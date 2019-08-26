@@ -3,6 +3,11 @@
 
 #include <mpi.h>
 
+#ifdef HAVE_CUDA
+#include <cuda_runtime.h>
+#include <nccl.h>
+#endif
+
 namespace dadt {
 
 // use gradient sum not average
@@ -45,6 +50,17 @@ struct Context {
   // create a flaot16 data type for mpi
   MPI_Datatype MPI_FLOAT16_T;
   
+#ifdef HAVE_CUDA
+  // cuda stream
+  cudaStream_t cuda_stream;
+
+  // nccl unique id
+  ncclUniqueId nccl_id;
+
+  // nccl comm
+  ncclComm_t nccl_comm;
+#endif
+
   // thread cycle duration milliseconds
   int64_t cycle_duration_ms = 5;
   int64_t cycle_duration_us;

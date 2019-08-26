@@ -5,6 +5,11 @@
 
 #include <mpi.h>
 
+#ifdef HAVE_CUDA
+#include <cuda_runtime.h>
+#include <nccl.h>
+#endif
+
 #include "json11.hpp"
 
 #include "exception.h"
@@ -61,6 +66,27 @@ void Commander::init_context() {
   MPI_Type_commit(&MPI_FLOAT16_T);
 
   context_.MPI_FLOAT16_T = MPI_FLOAT16_T;
+
+#ifdef HAVE_CUDA
+  // cuda stream
+  int greatest_priority;
+
+  CUDA_CALL(cudaDeviceGetStreamPriorityRange(nullptr, &greatest_priority));
+  CUDA_CALL(cudaStreamCreateWithPriority(&context_.cuda_stream, cudaStreamNonBlocking, greatest_priority));
+
+  // after create the mpi comm
+  // will create nccl context
+  if (0 == context_.world_rank) {
+    NCCL_CALL(ncclGetUniqueId(&context_.nccl_id));
+  }
+
+  // broad cast to other rank
+  MPI_CALL(MPI_Bcast((void*)&(context_.nccl_id), sizeof(context_.nccl_id), MPI_BYTE, 0, context_.world_comm));
+
+  // init nccl comm
+  NCCL_CALL(ncclCommInitRank(&context_.nccl_comm, context_.world_size, nccl_id, context_.world_rank));
+
+#endif
 
   // read cycle time
   auto cycle_duration_ms = std::getenv(DADT_CYCLE_DURATION_MS);

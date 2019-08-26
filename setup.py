@@ -76,8 +76,8 @@ class CMakeBuildExt(build_ext):
     # add tensorflow args
     cmake_args.append('-DTENSORFLOW_INCLUDE_DIRS=' + tf.sysconfig.get_include())
         
-    #-D_GLIBCXX_USE_CXX11_ABI=0
-    cmake_args.append('-D_GLIBCXX_USE_CXX11_ABI=0')
+    # -D_GLIBCXX_USE_CXX11_ABI=0
+    # cmake_args.append('-D_GLIBCXX_USE_CXX11_ABI=0')
 
     # tf lib folder
     tf_lib_folder = tf.sysconfig.get_lib()
@@ -153,7 +153,7 @@ setup(
     author='Yan Yuanchi',
     author_email='amazingyyc@outlook.com',
     zip_safe=False,
-    packages=['dadt/tensorflow'],
+    packages=['dadt', 'dadt/tensorflow'],
     ext_modules=[CMakeExtension(name='dadt', build_for_gpu=False, cmake_dir='.')],
     cmdclass={'build_ext' : CMakeBuildExt},
 )

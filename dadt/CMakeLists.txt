@@ -45,7 +45,7 @@ set(DADT_SRC_FILES
 add_library(dadt SHARED ${DADT_HEADER_FILES} ${DADT_SRC_FILES})
 
 if (HAVE_CUDA)
-  target_link_libraries(dadt json11 ${MPI_C_LIBRARIES} ${TENSORFLOW_LIB_PATHS} ${CUDA_LIB_PATHS})
+  target_link_libraries(dadt json11 ${MPI_CXX_LIBRARIES} ${TENSORFLOW_LIB_PATHS} ${CUDA_LIB_PATHS})
 else()
-  target_link_libraries(dadt json11 ${MPI_C_LIBRARIES} ${TENSORFLOW_LIB_PATHS})
+  target_link_libraries(dadt json11 ${MPI_CXX_LIBRARIES} ${TENSORFLOW_LIB_PATHS})
 endif()

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <stdexcept>
 
 namespace dadt {
   
@@ -39,6 +40,8 @@ namespace dadt {
   }                                                                             \
 }
 
+#ifdef HAVE_CUDA
+
 #define CUDA_CALL(cudaExecute)                                                  \
 {                                                                               \
   auto ret = (cudaExecute);                                                     \
@@ -49,6 +52,20 @@ namespace dadt {
     << cudaGetErrorString(ret));                                                \
   }                                                                             \
 };                                                                              \
+
+#define NCCL_CALL(ncclExecute)                                                  \
+{                                                                               \
+  auto ret = (ncclExecute);                                                     \
+  if (ret != ncclSuccess) {                                                     \
+    DEEP8_RUNTIME_ERROR("the NCCL get a error: "                                \
+    << #ncclExecute                                                             \
+    << ","                                                                      \
+    << ncclGetErrorString(ret));                                                \
+  }                                                                             \
+};                                                                              \
+
+
+#endif
 
 }
 
