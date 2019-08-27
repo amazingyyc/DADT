@@ -21,9 +21,9 @@ public:
   MPIAllReduceExecutor();
 
   // if has already create a midway tensor
-  std::shared_ptr<LockTensor> has_midway_tensor(std::string name) override;
+  std::shared_ptr<LockTensor> have_midway_tensor(std::string name) override;
   
-  std::shared_ptr<LockTensor> midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
+  std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
 
   void operator()(const Context &context, const std::vector<Task> &tasks) override;
 };

@@ -28,13 +28,14 @@ public:
     // get name
     auto midway_name = name();
 
-    auto midway_tensor = dadt::has_midway_tensor(dadt::DADTAllReduce, midway_name);
+    // if have a miday tensor
+    auto midway_tensor = dadt::have_midway_tensor(dadt::DADTAllReduceTaskType, midway_name);
 
     if (nullptr == midway_tensor) {
-      auto dims = convert_tensor_shape_to_array(input.shape());
+      auto dims         = convert_tensor_shape_to_array(input.shape());
       auto element_type = convert_dtype_to_element_type(input.dtype());
 
-      midway_tensor = dadt::midway_tensor(dadt::DADTAllReduce, midway_name, dims, element_type);
+      midway_tensor = dadt::create_midway_tensor(dadt::DADTAllReduceTaskType, midway_name, dims, element_type);
     }
 
     bool is_gpu = is_gpu_conext(context);
@@ -45,25 +46,17 @@ public:
       midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
 
       // copy data back to output
-      if (is_gpu) {
-        midway_tensor->copy_to_gpu((void*) output->tensor_data().data());
-      } else {
-        midway_tensor->copy_to_cpu((void*) output->tensor_data().data());
-      }
+      dadt::memcpy_from_tesnor(midway_tensor, (void*) output->tensor_data().data(), is_gpu);
 
       // change status from InFetch to InFill
       midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InFill);
 
       // copy input to tesnor
-      if (is_gpu) {
-        midway_tensor->copy_from_gpu(input.tensor_data().data());
-      } else {
-        midway_tensor->copy_from_cpu(input.tensor_data().data());
-      }
+      dadt::memcpy_to_tesnor(midway_tensor, input.tensor_data().data(), is_gpu);
 
       // create allreduce task than put it in task queue
       dadt::Task task;
-      task.task_type = dadt::DADTAllReduce;
+      task.task_type = dadt::DADTAllReduceTaskType;
       task.name      = midway_name;
       task.tensor    = midway_tensor;
       

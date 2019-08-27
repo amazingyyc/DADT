@@ -67,7 +67,7 @@ private:
 
   // insert a ready tensor and decide if it it ready to execute
   // only if all rank has ready to do the task
-  bool if_execute_task(int rank, TaskType task_type, std::string name);
+  bool check_execute_task(int rank, TaskType task_type, std::string name);
 
   // exchange the tasks with each process
   std::unordered_map<TaskType, std::vector<Task>> exchange_execute_tasks(std::vector<Task> &tasks);
@@ -109,19 +109,24 @@ public:
   // insert a task to task queue
   void enqueue_task(Task &&t);
 
+  // put a task is async queue
+  void async_job(std::function<void()> &&task);
+
   // used for background_thread_ to do the task
   void worker_do_cycle();
 
-  std::shared_ptr<LockTensor> has_midway_tensor(TaskType task_type, std::string name);
+  // check if already create a midway tesnor
+  std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType
-  std::shared_ptr<LockTensor> midway_tensor(TaskType task_type, 
-                                            std::string name, 
-                                            std::vector<int> dims, 
-                                            ElementType element_type);
+  std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
 
-  // put a task is async queue
-  void async_job(std::function<void()> &&task);
+  // copy dadt to tensor
+  void memcpy_to_tesnor(std::shared_ptr<LockTensor> tensor, const void *data, bool data_is_gpu);
+  
+  // copy dada from tesnor
+  void memcpy_from_tesnor(std::shared_ptr<LockTensor> tensor, void *data, bool data_is_gpu);
+  
 };
 
 }

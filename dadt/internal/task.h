@@ -11,8 +11,8 @@ class LockTensor;
 typedef int TaskType;
 
 // define the task type for now only support allreduce, broadcast
-const TaskType DADTAllReduce = 0;
-const TaskType DADTBroadCast = 1;
+const TaskType DADTAllReduceTaskType = 0;
+const TaskType DADTBroadCastTaskType = 1;
 
 // a task struct
 struct Task {

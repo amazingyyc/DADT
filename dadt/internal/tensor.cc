@@ -46,20 +46,4 @@ int Tensor::dim(int axis) const {
   return shape_.dim(axis);
 }
 
-void Tensor::copy_from_cpu(const void *data) {
-  this->device()->memcpy_from_cpu(this->ptr(), data, this->num_bytes());
-}
-
-void Tensor::copy_from_gpu(const void *data) {
-  this->device()->memcpy_from_gpu(this->ptr(), data, this->num_bytes());
-}
-
-void Tensor::copy_to_cpu(void *data) {
-  this->device()->memcpy_to_cpu(data, this->ptr(), this->num_bytes());
-}
-
-void Tensor::copy_to_gpu(void *data) {
-  this->device()->memcpy_to_gpu(data, this->ptr(), this->num_bytes());
-}
-
 }

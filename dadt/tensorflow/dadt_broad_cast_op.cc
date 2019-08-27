@@ -31,31 +31,25 @@ public:
     auto element_type = convert_dtype_to_element_type(input.dtype());
   
     // get the interim tensor
-    auto tensor = midway_tensor(dadt::DADTBroadCast, midway_name, dims, element_type);
+    auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, midway_name, dims, element_type);
 
     // copy input to interim tensor
     bool is_gpu = is_gpu_conext(context);
 
-    if (is_gpu) {
-      tensor->copy_from_gpu(input.tensor_data().data());
-    } else {
-      tensor->copy_from_cpu(input.tensor_data().data());
-    }
+    // copy to midway tesnor
+    dadt::memcpy_to_tesnor(midway_tensor, input.tensor_data().data(), is_gpu);
 
     // create a task
     dadt::Task task;
-    task.task_type = dadt::DADTBroadCast;
+    task.task_type = dadt::DADTBroadCastTaskType;
     task.name      = midway_name;
-    task.tensor    = tensor;
+    task.tensor    = midway_tensor;
 
-    task.done = [is_gpu, output, tensor, done] {
+    task.done = [is_gpu, output, midway_tensor, done] {
       // after broadcast should copy data to output
-      if (is_gpu) {
-        tensor->copy_to_gpu((void*) output->tensor_data().data());
-      } else {
-        tensor->copy_to_cpu((void*) output->tensor_data().data());
-      }
+      dadt::memcpy_from_tesnor(midway_tensor, (void*) output->tensor_data().data(), is_gpu);
 
+      // done callback
       done();
     };
     

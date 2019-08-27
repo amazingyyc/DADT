@@ -28,18 +28,6 @@ public:
 
   // zero the memory
   virtual void zero(void*, size_t) = 0;
-
-  // copy memory from cpu
-  virtual void memcpy_from_cpu(void *dst, const void *src, size_t size) = 0;
-
-  // copy from GPU
-  virtual void memcpy_from_gpu(void *dst, const void *src, size_t size) = 0;
-
-  // copy memory to cpu
-  virtual void memcpy_to_cpu(void *dst, const void *src, size_t size) = 0;
-
-  // copy memory to gpu
-  virtual void memcpy_to_gpu(void *dst, const void *src, size_t size) = 0;
 };
 
 class CPUAllocator: public IAllocator {
@@ -50,18 +38,6 @@ public:
 
   // zero the memory
   void zero(void*, size_t) override;
-
-  // copy memory from cpu
-  void memcpy_from_cpu(void *dst, const void *src, size_t size) override;
-
-  // copy from GPU
-  void memcpy_from_gpu(void *dst, const void *src, size_t size) override;
-
-  // copy memory to cpu
-  void memcpy_to_cpu(void *dst, const void *src, size_t size) override;
-
-  // copy memory to gpu
-  void memcpy_to_gpu(void *dst, const void *src, size_t size) override;
 };
 
 class GPUAllocator: public IAllocator {
@@ -78,18 +54,6 @@ public:
 
   // zero the memory
   void zero(void*, size_t) override;
-
-  // copy memory from cpu
-  void memcpy_from_cpu(void *dst, const void *src, size_t size) override;
-
-  // copy from GPU
-  void memcpy_from_gpu(void *dst, const void *src, size_t size) override;
-
-  // copy memory to cpu
-  void memcpy_to_cpu(void *dst, const void *src, size_t size) override;
-
-  // copy memory to gpu
-  void memcpy_to_gpu(void *dst, const void *src, size_t size) override;
 };
 
 class Device: public std::enable_shared_from_this<Device> {
@@ -124,18 +88,6 @@ public:
 
   // zero the memory
   void zero(void*, size_t);
-
-  // copy memory from cpu
-  void memcpy_from_cpu(void *dst, const void *src, size_t size);
-
-  // copy from GPU
-  void memcpy_from_gpu(void *dst, const void *src, size_t size);
-
-  // copy memory to cpu
-  void memcpy_to_cpu(void *dst, const void *src, size_t size);
-
-  // copy memory to gpu
-  void memcpy_to_gpu(void *dst, const void *src, size_t size);
 };
 
 std::shared_ptr<Device> get_cpu_device();

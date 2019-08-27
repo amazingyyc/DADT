@@ -100,10 +100,10 @@ void Commander::init_context() {
 
   // create task excutor
   // all reduce executor
-  task_executors_[DADTAllReduce] = std::make_shared<MPIAllReduceExecutor>();
+  task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
 
   // broad cast executor
-  task_executors_[DADTBroadCast] = std::make_shared<MPIBroadCastExecutor>();
+  task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
 
   // set the flag
   initialized_ = true;
@@ -220,7 +220,7 @@ std::unordered_map<TaskType, std::vector<std::string>> Commander::parse_json_to_
 
 // insert a ready tensor and decide if it it ready to execute
 // only if all process has ready to do the task
-bool Commander::if_execute_task(int rank, TaskType task_type, std::string name) {
+bool Commander::check_execute_task(int rank, TaskType task_type, std::string name) {
   std::tuple<TaskType, std::string> key = std::make_tuple(task_type, name);
 
   task_register_[key].insert(rank);
@@ -276,7 +276,7 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
       auto task_type = item.first;
 
       for (auto &name : item.second) {
-        if (if_execute_task(rank, task_type, name)) {
+        if (check_execute_task(rank, task_type, name)) {
           auto key = std::make_tuple(task_type, name);
 
           ARGUMENT_CHECK(task_pool_.find(key) != task_pool_.end(), "the task not in task_pool");
@@ -380,6 +380,13 @@ void Commander::enqueue_task(Task &&t) {
   ARGUMENT_CHECK(ret, "enqueue task to queue get error!");
 }
 
+// put a task is async queue
+void Commander::async_job(std::function<void()> &&task) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
+  async_queue_.enqueue(std::move(task));
+}
+
 // get the message from the queue and allreduce cross all node
 bool Commander::worker_do_task() {
   bool has_task = false;
@@ -465,27 +472,82 @@ void Commander::worker_do_cycle() {
   MPI_CALL(MPI_Finalize());
 }
 
-std::shared_ptr<LockTensor> Commander::has_midway_tensor(TaskType task_type, std::string name) {
+std::shared_ptr<LockTensor> Commander::have_midway_tensor(TaskType task_type, std::string name) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-  return task_executors_[task_type]->has_midway_tensor(name);
+  return task_executors_[task_type]->have_midway_tensor(name);
 }
 
 // get a interim tensor by TaskType
-std::shared_ptr<LockTensor> Commander::midway_tensor(TaskType task_type,
+std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
                                                       std::string name,
                                                       std::vector<int> dims,
                                                       ElementType element_type) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-  return task_executors_[task_type]->midway_tensor(name, dims, element_type);
+  return task_executors_[task_type]->create_midway_tensor(name, dims, element_type);
 }
 
-// put a task is async queue
-void Commander::async_job(std::function<void()> &&task) {
+// copy dadt to tensor
+void Commander::memcpy_to_tesnor(std::shared_ptr<LockTensor> tensor, const void *data, bool data_is_gpu) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-  async_queue_.enqueue(std::move(task));
+  if (data_is_gpu) {
+#ifdef HAVE_CUDA
+      if (DeviceType::CPU == tensor->device()->device_type()) {
+         // gpu to cpu
+        CUDA_CALL(cudaMemcpyAsync(tensor->ptr(), data, tensor->num_bytes(), cudaMemcpyDeviceToHost, context_.cuda_stream));
+      } else {
+        // gpu to gpu
+        CUDA_CALL(cudaMemcpyAsync(tensor->ptr(), data, tensor->num_bytes(), cudaMemcpyDeviceToDevice, context_.cuda_stream));
+     }
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+  } else {
+    if (DeviceType::CPU == tensor->device()->device_type()) {
+      // copy memory from cpu to cpu
+      std::memcpy(tensor->ptr(), data, tensor->num_bytes());
+    } else {
+      // copy memory from cpu to gpu
+#ifdef HAVE_CUDA
+      CUDA_CALL(cudaMemcpyAsync(tensor->ptr(), data, tensor->num_bytes(), cudaMemcpyHostToDevice, context_.cuda_stream));
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+    }
+  }
+}
+  
+// copy dada from tesnor
+void Commander::memcpy_from_tesnor(std::shared_ptr<LockTensor> tensor, void *data, bool data_is_gpu) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+  
+  if (data_is_gpu) {
+#ifdef HAVE_CUDA
+    if (DeviceType::CPU == tensor->device()->device_type()) {
+      // from cpu to gpu
+      CUDA_CALL(cudaMemcpyAsync(data, tensor->ptr(), tensor->num_bytes(), cudaMemcpyHostToDevice, context_.cuda_stream));
+    } else {
+      // from gpu to gpu
+      CUDA_CALL(cudaMemcpyAsync(data, tensor->ptr(), tensor->num_bytes(), cudaMemcpyDeviceToDevice, context_.cuda_stream));
+    }
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+  } else {
+    if (DeviceType::CPU == tensor->device()->device_type()) {
+      // cpu to cpu
+      std::memcpy(data, tensor->ptr(), tensor->num_bytes());
+    } else {
+      // copy memory from gpu to cpu
+#ifdef HAVE_CUDA
+      CUDA_CALL(cudaMemcpyAsync(dadt, tensor->ptr(), tensor->num_bytes(), cudaMemcpyDeviceToHost, context_.cuda_stream));
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+    }
+  }
 }
 
 }

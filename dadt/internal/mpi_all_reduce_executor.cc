@@ -7,7 +7,7 @@ MPIAllReduceExecutor::MPIAllReduceExecutor(): buffer_(get_cpu_device()) {
 }
 
 // if has already create a midway tensor
-std::shared_ptr<LockTensor> MPIAllReduceExecutor::has_midway_tensor(std::string name) {
+std::shared_ptr<LockTensor> MPIAllReduceExecutor::have_midway_tensor(std::string name) {
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
   }
@@ -16,7 +16,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::has_midway_tensor(std::string 
 }
 
 
-std::shared_ptr<LockTensor> MPIAllReduceExecutor::midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it
     auto tensor = tensor_pool_[name];
@@ -54,7 +54,7 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
   }
 
   void *recvbuf = nullptr;
-  int count     = 0;
+  int count = 0;
 
   if (tasks.size() > 1) {
     size_t memory_size = 0;
@@ -71,7 +71,7 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     size_t offset = 0;
 
     for (auto &task : tasks) {
-      task.tensor->copy_to_cpu(buffer_.ptr(offset));
+      std::memcpy(buffer_.ptr(offset), task.tensor->ptr(), task.tensor->num_bytes());
 
       offset += task.tensor->num_bytes();
     }
@@ -92,8 +92,8 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     size_t offset = 0;
 
     for (auto &task : tasks) {
-      task.tensor->copy_from_cpu(buffer_.ptr(offset));
-
+      std::memcpy(task.tensor->ptr(), buffer_.ptr(offset), task.tensor->num_bytes());
+      
       offset += task.tensor->num_bytes();
     }
   }

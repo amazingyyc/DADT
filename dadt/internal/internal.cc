@@ -52,18 +52,6 @@ void local_barrier() {
   commander_.local_barrier();
 }
 
-std::shared_ptr<LockTensor> has_midway_tensor(TaskType task_type, std::string name) {
-  return commander_.has_midway_tensor(task_type, name);
-}
-
-// get a interim tensor by TaskType
-std::shared_ptr<LockTensor> midway_tensor(TaskType task_type, 
-                                          std::string name, 
-                                          std::vector<int> dims, 
-                                          ElementType element_type) {
-  return commander_.midway_tensor(task_type, name, dims, element_type);
-}
-
 // put a task in queue
 void enqueue_task(Task &&t) {
   commander_.enqueue_task(std::move(t));
@@ -72,6 +60,28 @@ void enqueue_task(Task &&t) {
 // put a task is async queue
 void async_job(std::function<void()> &&job) {
   commander_.async_job(std::move(job));
+}
+
+std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name) {
+  return commander_.have_midway_tensor(task_type, name);
+}
+
+// get a interim tensor by TaskType
+std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, 
+                                          std::string name, 
+                                          std::vector<int> dims, 
+                                          ElementType element_type) {
+  return commander_.create_midway_tensor(task_type, name, dims, element_type);
+}
+
+// copy dadt to tensor
+void memcpy_to_tesnor(std::shared_ptr<LockTensor> tensor, const void *data, bool data_is_gpu) {
+  commander_.memcpy_to_tesnor(tensor, data, data_is_gpu);
+}
+
+// copy dada from tesnor
+void memcpy_from_tesnor(std::shared_ptr<LockTensor> tensor, void *data, bool data_is_gpu) {
+  commander_.memcpy_from_tesnor(tensor, data, data_is_gpu);
 }
 
 }

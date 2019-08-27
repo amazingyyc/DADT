@@ -32,6 +32,7 @@ set(DADT_SRC_FILES
   internal/mpi_broad_cast_executor.cc
   internal/shape.cc
   internal/spin_lock.cc
+  internal/task_executor.cc
   internal/tensor_storage.cc
   internal/tensor.cc
   internal/thread_pool.cc

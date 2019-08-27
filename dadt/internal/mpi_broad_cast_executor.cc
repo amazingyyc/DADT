@@ -6,11 +6,11 @@ MPIBroadCastExecutor::MPIBroadCastExecutor() {
 }
 
 // if has already create a midway tensor
-std::shared_ptr<LockTensor> MPIBroadCastExecutor::has_midway_tensor(std::string name) {
+std::shared_ptr<LockTensor> MPIBroadCastExecutor::have_midway_tensor(std::string name) {
   return std::shared_ptr<LockTensor>();
 }
 
-std::shared_ptr<LockTensor> MPIBroadCastExecutor::midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
   // the broadcast executor only works once, so we do not store the tensor for reuse
   // MPI broadcast should need cpu tensor
   auto device = get_cpu_device();

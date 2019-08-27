@@ -25,34 +25,6 @@ void CPUAllocator::zero(void *ptr, size_t size) {
   std::memset(ptr, 0, size);
 }
 
-// copy memory from cpu
-void CPUAllocator::memcpy_from_cpu(void *dst, const void *src, size_t size) {
-  std::memcpy(dst, src, size);
-}
-
-// copy from GPU
-void CPUAllocator::memcpy_from_gpu(void *dst, const void *src, size_t size) {
-#ifdef HAVE_CUDA
-  CUDA_CALL(cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost));
-#else
-  RUNTIME_ERROR("do not have CUDA");
-#endif
-}
-
-// copy memory to cpu
-void CPUAllocator::memcpy_to_cpu(void *dst, const void *src, size_t size) {
-  std::memcpy(dst, src, size);
-}
-
-// copy memory to gpu
-void CPUAllocator::memcpy_to_gpu(void *dst, const void *src, size_t size) {
-#ifdef HAVE_CUDA
-  CUDA_CALL(cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
-#else
-  RUNTIME_ERROR("do not have CUDA");
-#endif
-}
-
 GPUAllocator::GPUAllocator(int device_id): device_id_(device_id) {
 }
 
@@ -83,42 +55,6 @@ void GPUAllocator::zero(void *ptr, size_t size) {
   #ifdef HAVE_CUDA
   CUDA_CALL(cudaSetDevice(device_id_));
   CUDA_CALL(cudaMemset(ptr, 0, size));
-#else
-  RUNTIME_ERROR("do not have CUDA");
-#endif
-}
-
-// copy memory from cpu
-void GPUAllocator::memcpy_from_cpu(void *dst, const void *src, size_t size) {
-#ifdef HAVE_CUDA
-  CUDA_CALL(cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
-#else
-  RUNTIME_ERROR("do not have CUDA");
-#endif
-}
-
-// copy from GPU
-void GPUAllocator::memcpy_from_gpu(void *dst, const void *src, size_t size) {
-#ifdef HAVE_CUDA
-  CUDA_CALL(cudaMemcpy(dst, src, size, cudaMemcpyDeviceToDevice));
-#else
-  RUNTIME_ERROR("do not have CUDA");
-#endif
-}
-
-// copy memory to cpu
-void GPUAllocator::memcpy_to_cpu(void *dst, const void *src, size_t size) {
-#ifdef HAVE_CUDA
-  CUDA_CALL(cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost));
-#else
-  RUNTIME_ERROR("do not have CUDA");
-#endif
-}
-
-// copy memory to gpu
-void GPUAllocator::memcpy_to_gpu(void *dst, const void *src, size_t size) {
-#ifdef HAVE_CUDA
-  CUDA_CALL(cudaMemcpy(dst, src, size, cudaMemcpyDeviceToDevice));
 #else
   RUNTIME_ERROR("do not have CUDA");
 #endif
@@ -161,26 +97,6 @@ void Device::free(void* ptr) {
 // zero the memory
 void Device::zero(void *ptr, size_t size) {
   allocator_->zero(ptr, size);
-}
-
-// copy memory from cpu
-void Device::memcpy_from_cpu(void *dst, const void *src, size_t size) {
-  allocator_->memcpy_from_cpu(dst, src, size);
-}
-
-// copy from GPU
-void Device::memcpy_from_gpu(void *dst, const void *src, size_t size) {
-  allocator_->memcpy_from_gpu(dst, src, size);
-}
-
-// copy memory to cpu
-void Device::memcpy_to_cpu(void *dst, const void *src, size_t size) {
-  allocator_->memcpy_to_cpu(dst, src, size);
-}
-
-// copy memory to gpu
-void Device::memcpy_to_gpu(void *dst, const void *src, size_t size) {
-  allocator_->memcpy_to_gpu(dst, src, size);
 }
 
 std::shared_ptr<Device> cpu_device_;

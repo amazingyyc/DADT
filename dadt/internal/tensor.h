@@ -52,12 +52,6 @@ public:
   int num_bytes() const;
 
   int dim(int) const;
-
-  void copy_from_cpu(const void *data);
-  void copy_from_gpu(const void *data);
-
-  void copy_to_cpu(void *data);
-  void copy_to_gpu(void *dada);
 };
 
 }
