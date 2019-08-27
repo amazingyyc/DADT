@@ -46,4 +46,64 @@ int Tensor::dim(int axis) const {
   return shape_.dim(axis);
 }
 
+// copy memory from other 
+// for GPU the copy is synchronous 
+void Tensor::copy_from(const void *data, bool is_gpu) {
+  if (is_gpu) {
+#ifdef HAVE_CUDA
+    if (DeviceType::CPU == device()->device_type()) {
+      // copy from GPU to CPU
+      CUDA_CALL(cudaMemcpy(ptr(), data, num_bytes(), cudaMemcpyDeviceToHost));
+    } else {
+      // copy from gpu to gpu
+      CUDA_CALL(cudaMemcpy(ptr(), data, num_bytes(), cudaMemcpyDeviceToDevice));
+    }
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+  } else {
+    if (DeviceType::CPU == device()->device_type()) {
+      // cpu to cpu
+      std::memcpy(ptr(), data, num_bytes());
+    } else {
+#ifdef HAVE_CUDA
+      // cpu to gpu
+      CUDA_CALL(cudaMemcpy(ptr(), data, num_bytes(), cudaMemcpyHostToDevice));
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+    }
+  }
+}
+
+// copy memory to other
+// synchronous 
+void Tensor::copy_to(void *data, bool is_gpu) {
+  if (is_gpu) {
+#ifdef HAVE_CUDA
+    if (DeviceType::CPU == device()->device_type()) {
+      // from cpu to gpu
+      CUDA_CALL(cudaMemcpy(data, ptr(), num_bytes(), cudaMemcpyHostToDevice));
+    } else {
+      // from gpu to gpu
+      CUDA_CALL(cudaMemcpy(data, ptr(), num_bytes(), cudaMemcpyDeviceToDevice));
+    }
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+  } else {
+    if (DeviceType::CPU == device()->device_type()) {
+      // cpu to cpu
+      std::memcpy(data, ptr(), num_bytes());
+    } else {
+      // copy memory from gpu to cpu
+#ifdef HAVE_CUDA
+      CUDA_CALL(cudaMemcpy(dadt, ptr(), num_bytes(), cudaMemcpyDeviceToHost));
+#else
+      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
+#endif
+    }
+  }
+}
+
 }

@@ -4,6 +4,11 @@
 #include <iostream>
 #include <vector>
 
+#ifdef HAVE_CUDA
+#include <cuda_runtime.h>
+#include <nccl.h>
+#endif
+
 #include "context.h"
 #include "lock_tensor.h"
 #include "element_type.h"
@@ -12,8 +17,15 @@ namespace dadt {
 
 class ITaskExecutor {
 public:
+
+  virtual ~ITaskExecutor() = default;
+
   // get mpi data type by element type
   MPI_Datatype mpi_data_type(const Context &context, ElementType element_type);
+
+#ifdef HAVE_CUDA
+  ncclDataType_t nccl_data_type(const Context &context, ElementType element_type);
+#endif
 
   // if has already create a midway tensor
   virtual std::shared_ptr<LockTensor> have_midway_tensor(std::string name) = 0;

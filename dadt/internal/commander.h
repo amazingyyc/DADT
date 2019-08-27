@@ -120,12 +120,6 @@ public:
 
   // get a interim tensor by TaskType
   std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
-
-  // copy dadt to tensor
-  void memcpy_to_tesnor(std::shared_ptr<LockTensor> tensor, const void *data, bool data_is_gpu);
-  
-  // copy dada from tesnor
-  void memcpy_from_tesnor(std::shared_ptr<LockTensor> tensor, void *data, bool data_is_gpu);
   
 };
 

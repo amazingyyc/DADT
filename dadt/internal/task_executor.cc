@@ -34,4 +34,33 @@ MPI_Datatype ITaskExecutor::mpi_data_type(const Context &context, ElementType el
   }
 }
 
+#ifdef HAVE_CUDA
+
+ncclDataType_t ITaskExecutor::nccl_data_type(const Context &context, ElementType element_type) {
+  switch (element_type.id()) {
+    case DType::Uint8:
+      return ncclUint8;
+    case DType::Int8:
+      return ncclInt8;
+    case DType::Uint32:
+      return ncclUint32;
+    case DType::Int32:
+      return ncclInt32;
+    case DType::Uint64:
+      return ncclUint64;
+    case DType::Int64:
+      return ncclInt64;
+    case DType::Float16:
+      return ncclFloat16;
+    case DType::Float32:
+      return ncclFloat32;
+    case DType::Float64:
+      return ncclFloat64;
+    default:
+      RUNTIME_ERROR("the dtype" << element_type.name() << " is not support in NCCL");
+  }
+}
+
+#endif
+
 }

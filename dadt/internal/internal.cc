@@ -74,14 +74,4 @@ std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type,
   return commander_.create_midway_tensor(task_type, name, dims, element_type);
 }
 
-// copy dadt to tensor
-void memcpy_to_tesnor(std::shared_ptr<LockTensor> tensor, const void *data, bool data_is_gpu) {
-  commander_.memcpy_to_tesnor(tensor, data, data_is_gpu);
-}
-
-// copy dada from tesnor
-void memcpy_from_tesnor(std::shared_ptr<LockTensor> tensor, void *data, bool data_is_gpu) {
-  commander_.memcpy_from_tesnor(tensor, data, data_is_gpu);
-}
-
 }

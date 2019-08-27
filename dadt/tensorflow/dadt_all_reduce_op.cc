@@ -46,13 +46,15 @@ public:
       midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
 
       // copy data back to output
-      dadt::memcpy_from_tesnor(midway_tensor, (void*) output->tensor_data().data(), is_gpu);
+      // memory copy in tensorflow op always sync
+      midway_tensor->copy_to((void*) output->tensor_data().data(), is_gpu);
 
       // change status from InFetch to InFill
       midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InFill);
 
       // copy input to tesnor
-      dadt::memcpy_to_tesnor(midway_tensor, input.tensor_data().data(), is_gpu);
+      // memory copy in tensorflow op always sync
+      midway_tensor->copy_from(input.tensor_data().data(), is_gpu);
 
       // create allreduce task than put it in task queue
       dadt::Task task;

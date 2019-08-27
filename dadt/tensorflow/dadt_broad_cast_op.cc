@@ -37,7 +37,8 @@ public:
     bool is_gpu = is_gpu_conext(context);
 
     // copy to midway tesnor
-    dadt::memcpy_to_tesnor(midway_tensor, input.tensor_data().data(), is_gpu);
+    // memory copy in tensorflow op always sync
+    midway_tensor->copy_from(input.tensor_data().data(), is_gpu);
 
     // create a task
     dadt::Task task;
@@ -47,7 +48,7 @@ public:
 
     task.done = [is_gpu, output, midway_tensor, done] {
       // after broadcast should copy data to output
-      dadt::memcpy_from_tesnor(midway_tensor, (void*) output->tensor_data().data(), is_gpu);
+      midway_tensor->copy_to((void*) output->tensor_data().data(), is_gpu);
 
       // done callback
       done();

@@ -20,6 +20,10 @@
 #include "mpi_all_reduce_executor.h"
 #include "mpi_broad_cast_executor.h"
 
+#ifdef HAVE_CUDA
+#include "nccl_all_reduce_executor.h"
+#endif
+
 namespace dadt {
 
 Commander::Commander() : initialized_(false), worker_stopped_(false) {}
@@ -84,7 +88,7 @@ void Commander::init_context() {
   MPI_CALL(MPI_Bcast((void*)&(context_.nccl_id), sizeof(context_.nccl_id), MPI_BYTE, 0, context_.world_comm));
 
   // init nccl comm
-  NCCL_CALL(ncclCommInitRank(&context_.nccl_comm, context_.world_size, nccl_id, context_.world_rank));
+  NCCL_CALL(ncclCommInitRank(&context_.nccl_comm, context_.world_size, context_.nccl_id, context_.world_rank));
 
 #endif
 
@@ -486,68 +490,6 @@ std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
   return task_executors_[task_type]->create_midway_tensor(name, dims, element_type);
-}
-
-// copy dadt to tensor
-void Commander::memcpy_to_tesnor(std::shared_ptr<LockTensor> tensor, const void *data, bool data_is_gpu) {
-  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
-
-  if (data_is_gpu) {
-#ifdef HAVE_CUDA
-      if (DeviceType::CPU == tensor->device()->device_type()) {
-         // gpu to cpu
-        CUDA_CALL(cudaMemcpyAsync(tensor->ptr(), data, tensor->num_bytes(), cudaMemcpyDeviceToHost, context_.cuda_stream));
-      } else {
-        // gpu to gpu
-        CUDA_CALL(cudaMemcpyAsync(tensor->ptr(), data, tensor->num_bytes(), cudaMemcpyDeviceToDevice, context_.cuda_stream));
-     }
-#else
-      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
-#endif
-  } else {
-    if (DeviceType::CPU == tensor->device()->device_type()) {
-      // copy memory from cpu to cpu
-      std::memcpy(tensor->ptr(), data, tensor->num_bytes());
-    } else {
-      // copy memory from cpu to gpu
-#ifdef HAVE_CUDA
-      CUDA_CALL(cudaMemcpyAsync(tensor->ptr(), data, tensor->num_bytes(), cudaMemcpyHostToDevice, context_.cuda_stream));
-#else
-      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
-#endif
-    }
-  }
-}
-  
-// copy dada from tesnor
-void Commander::memcpy_from_tesnor(std::shared_ptr<LockTensor> tensor, void *data, bool data_is_gpu) {
-  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
-  
-  if (data_is_gpu) {
-#ifdef HAVE_CUDA
-    if (DeviceType::CPU == tensor->device()->device_type()) {
-      // from cpu to gpu
-      CUDA_CALL(cudaMemcpyAsync(data, tensor->ptr(), tensor->num_bytes(), cudaMemcpyHostToDevice, context_.cuda_stream));
-    } else {
-      // from gpu to gpu
-      CUDA_CALL(cudaMemcpyAsync(data, tensor->ptr(), tensor->num_bytes(), cudaMemcpyDeviceToDevice, context_.cuda_stream));
-    }
-#else
-      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
-#endif
-  } else {
-    if (DeviceType::CPU == tensor->device()->device_type()) {
-      // cpu to cpu
-      std::memcpy(data, tensor->ptr(), tensor->num_bytes());
-    } else {
-      // copy memory from gpu to cpu
-#ifdef HAVE_CUDA
-      CUDA_CALL(cudaMemcpyAsync(dadt, tensor->ptr(), tensor->num_bytes(), cudaMemcpyDeviceToHost, context_.cuda_stream));
-#else
-      RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
-#endif
-    }
-  }
 }
 
 }
