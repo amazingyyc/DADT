@@ -92,3 +92,53 @@ class BroadcastTrainableVariablesHook(tf.train.SessionRunHook):
 
   def after_create_session(self, session, coord):
     session.run(self.broad_cast_op)
+
+'''a optimizer wrapper'''
+class DistributedOptimizer(tf.train.Optimizer):
+  def __init__(self, optimizer, name=None, use_locking=False, gradient_avg=True):
+    self._optimizer = optimizer
+    self._gradient_avg = gradient_avg
+
+    if name is None:
+      name = 'Distributed{0}'.format(type(optimizer).__name__)
+
+    super(DistributedOptimizer, self).__init__(use_locking=use_locking, name=name)
+
+  def compute_gradients(self, *args, **kwargs):
+    '''get the origin gradient'''
+    origin_gradients = self._optimizer.compute_gradients(*args, **kwargs)
+
+    if size() > 1:
+      dadt_gradients = []
+
+      with tf.name_scope(self._name + 'AllReduce'):
+        for grad, var in origin_gradients:
+          if grad is not None:
+            if  isinstance(grad, tf.IndexedSlices):
+              raise ValueError('dadt does not support IndexedSlices')
+            
+            avg_grad = all_reduce(grad)
+
+            if self._gradient_avg:
+              dadt_size = tf.cast(size(), dtype=avg_grad.dtype)
+              avg_grad  = tf.div(avg_grad, dadt_size)
+
+            dadt_gradients.append((avg_grad, var))
+          else:
+            dadt_gradients.append((None, var))
+        
+      return dadt_gradients
+    else:
+      return origin_gradients
+
+  def apply_gradients(self, *args, **kwargs):
+      return self._optimizer.apply_gradients(*args, **kwargs)
+
+  def get_slot(self, *args, **kwargs):
+      return self._optimizer.get_slot(*args, **kwargs)
+
+  def get_slot_names(self, *args, **kwargs):
+      return self._optimizer.get_slot_names(*args, **kwargs)
+
+  def variables(self, *args, **kwargs):
+      return self._optimizer.variables(*args, **kwargs)

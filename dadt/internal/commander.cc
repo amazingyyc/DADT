@@ -304,8 +304,8 @@ void Commander::init() {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
 
   // init thread pool
-  // only use 1 thread
-  async_queue_.init(1);
+  // only use 2 thread
+  async_queue_.init(2);
 
   // init a thread and wait finish init context
   worker_thread_ = std::thread(&Commander::worker_do_cycle, this);
@@ -462,8 +462,7 @@ void Commander::worker_do_cycle() {
     auto task_duration = std::chrono::steady_clock::now() - task_start_time;
 
     if (task_duration < std::chrono::microseconds(context_.cycle_duration_us)) {
-      // std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_us) - task_duration);
-      std::this_thread::sleep_for(std::chrono::microseconds(50000));
+      std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_us) - task_duration);
     }
 
     // if there not left task and the worker has been stopped, will jump outof loop
