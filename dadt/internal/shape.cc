@@ -1,7 +1,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "exception.h"
+#include "definition.h"
 #include "shape.h"
 
 namespace dadt {

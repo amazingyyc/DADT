@@ -12,7 +12,7 @@
 
 #include "json11.hpp"
 
-#include "exception.h"
+#include "definition.h"
 #include "commander.h"
 #include "task.h"
 #include "task_executor.h"
@@ -30,7 +30,7 @@ Commander::Commander() : initialized_(false), worker_stopped_(false) {}
 
 // initialize context
 // the funtion should call in background thread
-void Commander::init_context() {
+void Commander::init_context(Config config) {
   int thread_required = MPI_THREAD_MULTIPLE;
   int thread_provided;
 
@@ -92,22 +92,28 @@ void Commander::init_context() {
 
 #endif
 
-  // read cycle time
-  auto cycle_duration_ms = std::getenv(DADT_CYCLE_DURATION_MS);
-  if (nullptr != cycle_duration_ms) {
-    context_.cycle_duration_ms = std::strtoll(cycle_duration_ms, nullptr, 10);
-    context_.cycle_duration_us = context_.cycle_duration_ms * 1000;
-  } else {
-    context_.cycle_duration_ms = 5;
-    context_.cycle_duration_us = context_.cycle_duration_ms * 1000;
+  // set cycle time
+  if (config.cycle_duration_ms <= 0) {
+    config.cycle_duration_ms = 5;
   }
 
-  // create task excutor
-  // all reduce executor
-  task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
+  // convert to microsecond
+  context_.cycle_duration_us = config.cycle_duration_ms * 1000;
 
-  // broad cast executor
+  // set broadcast executor
   task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
+
+  if (0 == config.all_reduce_executor_type) {
+    task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
+  } else if (1 == config.all_reduce_executor_type) {
+#ifdef HAVE_CUDA
+    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>();
+#else
+    RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
+#endif
+  } else {
+    RUNTIME_ERROR("all_reduce_executor_type error, please set to be 0(MPI) or 1(NCCL)");
+  }
 
   // set the flag
   initialized_ = true;
@@ -300,7 +306,7 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
 }
 
 // init the commander
-void Commander::init() {
+void Commander::init(Config config) {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
 
   // init thread pool
@@ -308,7 +314,7 @@ void Commander::init() {
   async_queue_.init(2);
 
   // init a thread and wait finish init context
-  worker_thread_ = std::thread(&Commander::worker_do_cycle, this);
+  worker_thread_ = std::thread(&Commander::worker_do_cycle, this, config);
 
   while (false == initialized_) {/**just wait*/}
 }
@@ -449,9 +455,9 @@ bool Commander::worker_do_task() {
 }
 
 // used for background_thread_ to do the task
-void Commander::worker_do_cycle() {
+void Commander::worker_do_cycle(Config config) {
   // init context
-  init_context();
+  init_context(config);
 
   while (true) {
     auto task_start_time = std::chrono::steady_clock::now();

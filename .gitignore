@@ -2,3 +2,5 @@
 .build/
 build/
 .vs/
+DADT.egg-info/
+dist/

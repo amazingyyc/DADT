@@ -3,17 +3,8 @@ cmake_minimum_required(VERSION 3.8)
 # c++11
 set(CMAKE_CXX_STANDARD 11)
 
-# MPI variable
-# MPI_C_COMPILER
-# MPI_C_COMPILE_FLAGS
-# MPI_C_INCLUDE_PATH
-# MPI_C_LINK_FLAGS
-# MPI_C_LIBRARIES
-# MPI_CXX_COMPILER
-# MPI_CXX_COMPILE_FLAGS
-# MPI_CXX_INCLUDE_PATH
-# MPI_CXX_LINK_FLAGS
-# MPI_CXX_LIBRARIES
+# print debug log
+# add_definitions(-DDEBUG_LOG)
 
 # find mpi
 find_package(MPI REQUIRED)

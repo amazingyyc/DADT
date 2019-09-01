@@ -1,4 +1,4 @@
-#include "exception.h"
+#include "definition.h"
 #include "internal.h"
 #include "commander.h"
 
@@ -8,8 +8,8 @@ namespace dadt {
 dadt::Commander commander_;
 
 // initialize dadt
-void init() {
-  commander_.init();
+void init(Config config) {
+  commander_.init(config);
 }
 
 // stop the background thread

@@ -7,7 +7,7 @@
 #include <iostream>
 #include <unordered_map>
 
-#include "exception.h"
+#include "definition.h"
 #include "device.h"
 
 namespace dadt {

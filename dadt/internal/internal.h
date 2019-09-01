@@ -6,6 +6,7 @@
 #include <memory>
 #include <cstring>
 
+#include "context.h"
 #include "task.h"
 #include "element_type.h"
 #include "lock_tensor.h"
@@ -15,7 +16,7 @@ namespace dadt {
 extern "C" {
 
 // initialize dadt
-void init();
+void init(Config config);
 
 // stop the background thread
 void shutdown();

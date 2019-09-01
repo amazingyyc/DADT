@@ -10,6 +10,17 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import sparse_ops
 
+'''
+dadt config
+cycle_duration_ms: ackground thread sleep time, millisecond
+what kind all reduce executor should be used
+0: mpi all reduce
+1: nccl all reduce
+'''
+class Config(ctypes.Structure):
+  _fields_ = [("cycle_duration_ms", ctypes.c_int), 
+              ("all_reduce_executor_type", ctypes.c_int)]
+
 if 'Windows' == platform.system():
   dadt_library_suffix = '.dll'
 elif 'Linux' == platform.system():
@@ -25,9 +36,12 @@ dadt_library_path = resource_loader.get_path_to_datafile('../libdadt{0}'.format(
 dadt_tf_module  = tf.load_op_library(dadt_library_path)
 dadt_native_module = ctypes.CDLL(dadt_library_path, mode=ctypes.RTLD_GLOBAL)
 
+'''set the argumentation type'''
+dadt_native_module.init.argtypes = (Config, )
+
 '''init dadt'''
-def init():
-  dadt_native_module.init()
+def init(config = Config(cycle_duration_ms=5, all_reduce_executor_type=0)):
+  dadt_native_module.init(config)
 
 def shutdown():
   dadt_native_module.shutdown()
@@ -88,7 +102,8 @@ class BroadcastTrainableVariablesHook(tf.train.SessionRunHook):
     self.broad_cast_op = None
 
   def begin(self):
-    self.broad_cast_op = tf.group(*[tf.assign(var, broad_cast(var)) for var in tf.trainable_variables()])
+    assign_ops = [tf.assign(var, broad_cast(var)) for var in tf.trainable_variables()]
+    self.broad_cast_op = tf.group(*assign_ops)
 
   def after_create_session(self, session, coord):
     session.run(self.broad_cast_op)

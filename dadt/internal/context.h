@@ -10,11 +10,16 @@
 
 namespace dadt {
 
-// use gradient sum not average
-#define DADT_ALLREDUCE_AVERAGE_DISABLE "DADT_ALLREDUCE_AVERAGE_DISABLE"
+// a config used for communicate with python
+struct Config {
+  // background thread sleep time, millisecond
+  int cycle_duration_ms;
 
-// cycle time
-#define DADT_CYCLE_DURATION_MS "DADT_CYCLE_DURATION_MS"
+  // what kind all reduce executor should be used
+  // 0: mpi all reduce
+  // 1: nccl all reduce
+  int all_reduce_executor_type;
+};
 
 // context include the MPI context
 // and some env
@@ -61,8 +66,7 @@ struct Context {
   ncclComm_t nccl_comm;
 #endif
 
-  // thread cycle duration milliseconds
-  int64_t cycle_duration_ms = 5;
+  // thread cycle duration microsecond
   int64_t cycle_duration_us;
 };
 

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "exception.h"
+#include "definition.h"
 #include "lock_tensor.h"
 
 namespace dadt {

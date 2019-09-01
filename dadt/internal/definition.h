@@ -1,5 +1,5 @@
-#ifndef EXCEPTION_H
-#define EXCEPTION_H
+#ifndef DEFINITION_H
+#define DEFINITION_H
 
 #include <iostream>
 #include <string>
@@ -7,7 +7,18 @@
 #include <stdexcept>
 
 namespace dadt {
-  
+
+#ifdef DEBUG_LOG
+#define LOG_INFO(rank, info)                                                   \
+  {                                                                            \
+    std::ostringstream oss;                                                    \
+    oss << "rank:" << rank << ", " << info << ".";                             \
+    std::cout << oss.str() << "\n";                                            \
+  }
+#else
+#define LOG_INFO(rank, info)
+#endif
+
 #define ARGUMENT_CHECK(condition, message)                                     \
   if (!(condition)) {                                                          \
     std::ostringstream oss;                                                    \
@@ -63,7 +74,6 @@ namespace dadt {
     << ncclGetErrorString(ret));                                                \
   }                                                                             \
 };                                                                              \
-
 
 #endif
 

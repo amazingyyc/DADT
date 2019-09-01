@@ -6,6 +6,7 @@ set(DADT_HEADER_FILES
   internal/commander.h
   internal/context.h
   internal/device.h
+  internal/definition.h
   internal/element_type.h
   internal/lock_tensor.h
   internal/memory_buffer.h

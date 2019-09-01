@@ -14,3 +14,4 @@ from dadt.tensorflow.methods import local_barrier
 from dadt.tensorflow.methods import broad_cast
 from dadt.tensorflow.methods import all_reduce
 from dadt.tensorflow.methods import BroadcastTrainableVariablesHook
+from dadt.tensorflow.methods import DistributedOptimizer

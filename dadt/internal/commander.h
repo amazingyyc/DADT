@@ -53,7 +53,7 @@ private:
 
 private:
   // initialize context
-  void init_context();
+  void init_context(Config);
 
   // exchange string with special MPI_Comm
   // return is a string array corresponding the rank index
@@ -80,7 +80,7 @@ public:
   Commander();
 
   // init the commander
-  void init();
+  void init(Config config);
 
   // shutdown background thread
   void shutdown();
@@ -113,7 +113,7 @@ public:
   void async_job(std::function<void()> &&task);
 
   // used for background_thread_ to do the task
-  void worker_do_cycle();
+  void worker_do_cycle(Config config);
 
   // check if already create a midway tesnor
   std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name);

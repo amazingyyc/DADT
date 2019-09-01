@@ -4,7 +4,7 @@
 #include <iostream>
 #include <mpi.h>
 
-#include "exception.h"
+#include "definition.h"
 
 // define the half
 #ifndef HAVE_CUDA
