@@ -15,7 +15,6 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::have_midway_tensor(std::string
   return std::shared_ptr<LockTensor>();
 }
 
-
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it

@@ -107,7 +107,7 @@ void Commander::init_context(Config config) {
     task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
   } else if (1 == config.all_reduce_executor_type) {
 #ifdef HAVE_CUDA
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>();
+    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.world_rank);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
@@ -471,7 +471,7 @@ void Commander::worker_do_cycle(Config config) {
       std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_us) - task_duration);
     }
 
-    // if there not left task and the worker has been stopped, will jump outof loop
+    // if there not left task and the worker has been stopped, will jump out of loop
     if (false == has_task && true == worker_stopped_) {
       break;
     }
