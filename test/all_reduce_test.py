@@ -1,5 +1,7 @@
 #coding=utf-8
 
+from __future__ import print_function
+
 import tensorflow as tf
 import dadt.tensorflow as dadt
 

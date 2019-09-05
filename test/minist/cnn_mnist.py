@@ -104,7 +104,7 @@ def main(unused_argv):
   # Create the Estimator
   mnist_classifier = tf.estimator.Estimator(
       model_fn=cnn_model_fn,
-      model_dir="model")
+      model_dir="model" + str(dadt.rank()))
 
   # Set up logging for predictions
   # tensors_to_log = {"predictions": "softmax_tensor"}

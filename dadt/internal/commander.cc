@@ -26,7 +26,7 @@
 
 namespace dadt {
 
-Commander::Commander() : initialized_(false), worker_stopped_(false) {}
+Commander::Commander() : initialized_(false) {}
 
 // initialize context
 // the funtion should call in background thread
@@ -327,7 +327,14 @@ void Commander::shutdown() {
   async_queue_.stop();
 
   // stop worker thread
-  worker_stopped_ = true;
+  // put a shutdown task in queue
+  Task shutdown_task;
+  shutdown_task.task_type = DADTShutDownTaskType;
+  shutdown_task.name      = DADT_SHUTDOWN_TASK_NAME;
+
+  // shutdown system
+  enqueue_task(std::move(shutdown_task));
+
   worker_thread_.join();
 
   // set flag
@@ -399,8 +406,6 @@ void Commander::async_job(std::function<void()> &&task) {
 
 // get the message from the queue and allreduce cross all node
 bool Commander::worker_do_task() {
-  bool has_task = false;
-
   std::vector<Task> tasks;
 
   // step 1: get all task from the queue
@@ -416,9 +421,13 @@ bool Commander::worker_do_task() {
   // step2, exchange with other node
   auto execute_tasks = exchange_execute_tasks(tasks);
 
-  // if the queue still have task or the task_pool has left task
-  // set has_task to be true
-  has_task = !tasks.empty() || !task_pool_.empty();
+  // check whether shutdown
+  bool shutdown = false;
+
+  if (execute_tasks.find(DADTShutDownTaskType) != execute_tasks.end()) {
+    shutdown = true;
+    execute_tasks.erase(DADTShutDownTaskType);
+  }
 
   // for now every process have some task that will be executed
   // step3, sort the the tasks by TaskType
@@ -451,7 +460,7 @@ bool Commander::worker_do_task() {
   }
 
   // tell the thread if have left task
-  return has_task;
+  return shutdown;
 }
 
 // used for background_thread_ to do the task
@@ -463,21 +472,24 @@ void Commander::worker_do_cycle(Config config) {
     auto task_start_time = std::chrono::steady_clock::now();
 
     // do the task
-    auto has_task = worker_do_task();
+    auto shutdown = worker_do_task();
+
+    if (shutdown) {
+      break;
+    }
 
     auto task_duration = std::chrono::steady_clock::now() - task_start_time;
 
     if (task_duration < std::chrono::microseconds(context_.cycle_duration_us)) {
       std::this_thread::sleep_for(std::chrono::microseconds(context_.cycle_duration_us) - task_duration);
     }
-
-    // if there not left task and the worker has been stopped, will jump out of loop
-    if (false == has_task && true == worker_stopped_) {
-      break;
-    }
   }
 
-  // finalize the mpi
+  // clean mpi
+  MPI_CALL(MPI_Type_free(&context_.MPI_FLOAT16_T));
+  MPI_CALL(MPI_Comm_free(&context_.cross_comm));
+  MPI_CALL(MPI_Comm_free(&context_.local_comm));
+  MPI_CALL(MPI_Comm_free(&context_.world_comm));
   MPI_CALL(MPI_Finalize());
 }
 
@@ -489,9 +501,9 @@ std::shared_ptr<LockTensor> Commander::have_midway_tensor(TaskType task_type, st
 
 // get a interim tensor by TaskType
 std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
-                                                      std::string name,
-                                                      std::vector<int> dims,
-                                                      ElementType element_type) {
+                                                            std::string name,
+                                                            std::vector<int> dims,
+                                                            ElementType element_type) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
   return task_executors_[task_type]->create_midway_tensor(name, dims, element_type);

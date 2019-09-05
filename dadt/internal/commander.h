@@ -16,9 +16,7 @@
 
 namespace dadt {
 
-/**
- * commander of all project
- */
+// commander of all project
 class Commander {
 private:
   // context
@@ -35,9 +33,6 @@ private:
 
   // a background thread will loop take task from message_queue_ to do the task
   std::thread worker_thread_;
-
-  // if stop the background thread
-  std::atomic<bool> worker_stopped_;
 
   // after take the task from queue, it may not execute right now becuase some other process may not put same some task
   // so put it in register for tmp
@@ -73,7 +68,7 @@ private:
   std::unordered_map<TaskType, std::vector<Task>> exchange_execute_tasks(std::vector<Task> &tasks);
 
   // loop to get task from queue and do the task
-  // if have task left in pool return true
+  // return wheter shut down
   bool worker_do_task();
 
 public:

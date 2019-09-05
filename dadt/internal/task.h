@@ -11,8 +11,12 @@ class LockTensor;
 typedef int TaskType;
 
 // define the task type for now only support allreduce, broadcast
+// shutdown is a special task type use for shut down whole system
+const TaskType DADTShutDownTaskType  = -1;
 const TaskType DADTAllReduceTaskType = 0;
 const TaskType DADTBroadCastTaskType = 1;
+
+#define DADT_SHUTDOWN_TASK_NAME "shutdown"
 
 // a task struct
 struct Task {
