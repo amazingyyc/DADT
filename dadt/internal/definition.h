@@ -51,7 +51,7 @@ namespace dadt {
   }                                                                             \
 }
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 
 #define CUDA_CALL(cudaExecute)                                                  \
 {                                                                               \

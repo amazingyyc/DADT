@@ -7,7 +7,7 @@
 #include "definition.h"
 
 // define the half
-#ifndef HAVE_CUDA
+#ifndef HAVE_NCCL
 typedef struct half_ {
   uint16_t value;
 } half;

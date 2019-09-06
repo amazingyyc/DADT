@@ -34,7 +34,7 @@ MPI_Datatype ITaskExecutor::mpi_data_type(const Context &context, ElementType el
   }
 }
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 
 ncclDataType_t ITaskExecutor::nccl_data_type(const Context &context, ElementType element_type) {
   switch (element_type.id()) {

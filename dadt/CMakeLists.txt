@@ -44,15 +44,15 @@ set(DADT_SRC_FILES
   tensorflow/dadt_all_reduce_op.cc
 )
 
-if (HAVE_CUDA)
+if (HAVE_NCCL)
   list(APPEND DADT_HEADER_FILES internal/nccl_all_reduce_executor.h)
   list(APPEND DADT_SRC_FILES internal/nccl_all_reduce_executor.cc)
 endif()
 
 add_library(dadt SHARED ${DADT_HEADER_FILES} ${DADT_SRC_FILES})
 
-if (HAVE_CUDA)
-  target_link_libraries(dadt json11 ${MPI_CXX_LIBRARIES} ${TENSORFLOW_LIB_PATHS} ${CUDA_LIB_PATHS})
+if (HAVE_NCCL)
+  target_link_libraries(dadt json11 ${MPI_CXX_LIBRARIES} ${TENSORFLOW_LIB_PATHS} ${CUDA_LIB_PATHS} ${NCCL_LIB_PATHS})
 else()
   target_link_libraries(dadt json11 ${MPI_CXX_LIBRARIES} ${TENSORFLOW_LIB_PATHS})
 endif()

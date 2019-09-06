@@ -81,7 +81,7 @@ public:
 // register to Device
 REGISTER_KERNEL_BUILDER(Name("DadtAllReduce").Device(DEVICE_CPU), DadtAllReduceOp);
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 REGISTER_KERNEL_BUILDER(Name("DadtAllReduce").Device(DEVICE_GPU), DadtAllReduceOp);
 #endif
 

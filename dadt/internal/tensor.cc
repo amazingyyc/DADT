@@ -50,7 +50,7 @@ int Tensor::dim(int axis) const {
 // for GPU the copy is synchronous 
 void Tensor::copy_from(const void *data, bool is_gpu) {
   if (is_gpu) {
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
     if (DeviceType::CPU == device()->device_type()) {
       // copy from GPU to CPU
       CUDA_CALL(cudaMemcpy(ptr(), data, num_bytes(), cudaMemcpyDeviceToHost));
@@ -66,7 +66,7 @@ void Tensor::copy_from(const void *data, bool is_gpu) {
       // cpu to cpu
       std::memcpy(ptr(), data, num_bytes());
     } else {
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
       // cpu to gpu
       CUDA_CALL(cudaMemcpy(ptr(), data, num_bytes(), cudaMemcpyHostToDevice));
 #else
@@ -80,7 +80,7 @@ void Tensor::copy_from(const void *data, bool is_gpu) {
 // synchronous 
 void Tensor::copy_to(void *data, bool is_gpu) {
   if (is_gpu) {
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
     if (DeviceType::CPU == device()->device_type()) {
       // from cpu to gpu
       CUDA_CALL(cudaMemcpy(data, ptr(), num_bytes(), cudaMemcpyHostToDevice));
@@ -97,7 +97,7 @@ void Tensor::copy_to(void *data, bool is_gpu) {
       std::memcpy(data, ptr(), num_bytes());
     } else {
       // copy memory from gpu to cpu
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
       CUDA_CALL(cudaMemcpy(dadt, ptr(), num_bytes(), cudaMemcpyDeviceToHost));
 #else
       RUNTIME_ERROR("compile without CUDA, can not call CUDA function");

@@ -5,7 +5,7 @@
 
 #include <mpi.h>
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 #include <cuda_runtime.h>
 #include <nccl.h>
 #endif
@@ -20,7 +20,7 @@
 #include "mpi_all_reduce_executor.h"
 #include "mpi_broad_cast_executor.h"
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL 
 #include "nccl_all_reduce_executor.h"
 #endif
 
@@ -71,7 +71,7 @@ void Commander::init_context(Config config) {
 
   context_.MPI_FLOAT16_T = MPI_FLOAT16_T;
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
   // cuda stream
   int greatest_priority;
 
@@ -106,7 +106,7 @@ void Commander::init_context(Config config) {
   if (0 == config.all_reduce_executor_type) {
     task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
   } else if (1 == config.all_reduce_executor_type) {
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
     task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.world_rank);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
@@ -266,7 +266,7 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
     category_tasks[t.task_type].emplace_back(t.name);
   }
 
-  // formate to s string
+  // format to string
   std::string tasks_json = dump_tasks_to_json(category_tasks);
 
   // step3: exchange with other process

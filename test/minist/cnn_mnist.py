@@ -69,7 +69,7 @@ def cnn_model_fn(features, labels, mode):
     grad_vars = optimizer.compute_gradients(loss, tvars)
     (grads, _) = zip(*grad_vars)
 
-    (grads, l2_norm) = tf.clip_by_global_norm(grads, clip_norm=5.0)
+    (grads, l2_norm) = tf.clip_by_global_norm(grads, clip_norm=1.0)
     
     train_op = optimizer.apply_gradients(zip(grads, tvars), global_step=tf.train.get_global_step())
 

@@ -62,7 +62,7 @@ public:
 // register to Device
 REGISTER_KERNEL_BUILDER(Name("DadtBroadCast").Device(DEVICE_CPU), DadtBroadCastOp);
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 REGISTER_KERNEL_BUILDER(Name("DadtBroadCast").Device(DEVICE_GPU), DadtBroadCastOp);
 #endif
 

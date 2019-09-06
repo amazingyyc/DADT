@@ -25,8 +25,9 @@ add_subdirectory(third_party/json11)
 include_directories(${TENSORFLOW_INCLUDE_DIRS})
 
 # if have cuda
-if (HAVE_CUDA)
+if (HAVE_NCCL)
   include_directories(${CUDA_INCLUDE_DIRS})
+  include_directories(${NCCL_INCLUDE_DIRS})
 endif()
 
 # dadt include

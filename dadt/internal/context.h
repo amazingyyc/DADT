@@ -3,7 +3,7 @@
 
 #include <mpi.h>
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 #include <cuda_runtime.h>
 #include <nccl.h>
 #endif
@@ -54,8 +54,8 @@ struct Context {
 
   // create a flaot16 data type for mpi
   MPI_Datatype MPI_FLOAT16_T;
-  
-#ifdef HAVE_CUDA
+
+#ifdef HAVE_NCCL
   // cuda stream
   cudaStream_t cuda_stream;
 

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 #include <cuda_runtime.h>
 #include <nccl.h>
 #endif
@@ -23,7 +23,7 @@ public:
   // get mpi data type by element type
   MPI_Datatype mpi_data_type(const Context &context, ElementType element_type);
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
   ncclDataType_t nccl_data_type(const Context &context, ElementType element_type);
 #endif
 

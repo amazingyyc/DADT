@@ -1,5 +1,5 @@
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #endif
@@ -29,7 +29,7 @@ GPUAllocator::GPUAllocator(int device_id): device_id_(device_id) {
 }
 
 void* GPUAllocator::malloc(size_t size) {
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
   void *ptr;
 
   CUDA_CALL(cudaSetDevice(device_id_));
@@ -42,7 +42,7 @@ void* GPUAllocator::malloc(size_t size) {
 }
 
 void GPUAllocator::free(void *ptr) {
-#ifdef HAVE_CUDA
+#ifdef HAVE_NCCL
   CUDA_CALL(cudaSetDevice(device_id_));
   CUDA_CALL(cudaFree(ptr));
 #else
@@ -52,7 +52,7 @@ void GPUAllocator::free(void *ptr) {
 
 // zero the memory
 void GPUAllocator::zero(void *ptr, size_t size) {
-  #ifdef HAVE_CUDA
+  #ifdef HAVE_NCCL
   CUDA_CALL(cudaSetDevice(device_id_));
   CUDA_CALL(cudaMemset(ptr, 0, size));
 #else

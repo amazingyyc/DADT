@@ -31,11 +31,36 @@ def find_in_path(name, path):
 
   return None
 
+'''find a file in folder'''
+def find_file_in_folder(folder, name):
+  for file_name in os.listdir(folder):
+    file_path = os.path.join(folder, name)
+
+    if os.path.isfile(file_path):
+      if file_name == name:
+        return file_path
+    elif os.path.isdir(file_path):
+      correct_path = find_library_in_folder(file_path, name)
+
+      if None != correct_path:
+        return correct_path
+
+  return None
+
+def find_file_in_folders(folders, name):
+  for folder in folders:
+    correct_path = find_library_in_folder(folder, name)
+
+    if None != correct_path:
+      return correct_path
+
+  return None
+
 class CMakeExtension(Extension):
-  def __init__(self, name, build_for_gpu = False, cmake_dir=''):
+  def __init__(self, name, build_for_nccl = False, cmake_dir=''):
     Extension.__init__(self, name, sources=[])
 
-    self.build_for_gpu = build_for_gpu
+    self.build_for_nccl = build_for_nccl
     self.cmake_dir = os.path.abspath(cmake_dir)
 
 class CMakeBuildExt(build_ext):
@@ -68,10 +93,14 @@ class CMakeBuildExt(build_ext):
 
     cuda include path: CUDA_INCLUDE_DIRS
     cuda lib: CUDA_LIB_PATHS
+
+    nccl include path: NCCL_INCLUDE_DIRS
+    nccl lib: NCCL_LIB_PATHS
     '''
 
     # cmake args
-    cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + ext_dir, '-DPYTHON_EXECUTABLE=' + sys.executable]
+    # cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + ext_dir, '-DPYTHON_EXECUTABLE=' + sys.executable]
+    cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + ext_dir]
 
     # add tensorflow args
     cmake_args.append('-DTENSORFLOW_INCLUDE_DIRS=' + tf.sysconfig.get_include())
@@ -82,8 +111,6 @@ class CMakeBuildExt(build_ext):
     # tf lib folder
     tf_lib_folder = tf.sysconfig.get_lib()
 
-    print('tf_lib_folder:', tf_lib_folder)
-
     tf_lib_paths = [os.path.join(tf_lib_folder, file) \
                         for file in os.listdir(tf_lib_folder) \
                         if os.path.isfile(os.path.join(tf_lib_folder, file)) and \
@@ -91,9 +118,16 @@ class CMakeBuildExt(build_ext):
     # set tensorflow lib
     cmake_args.append('-DTENSORFLOW_LIB_PATHS=' + ';'.join(tf_lib_paths))
     
-    if ext.build_for_gpu:
-      # set GPU build flag
+    print('TENSORFLOW_INCLUDE_DIRS:', tf.sysconfig.get_include())
+    print('TENSORFLOW_LIB_PATHS:', ';'.join(tf_lib_paths))
+
+    if ext.build_for_nccl:
+      if 'Linux' != platform.system():
+        raise ValueError('build_for_nccl only works for Linux.')
+
+      # set CUDA and NCCL build flag
       cmake_args.append('-DHAVE_CUDA=1')
+      cmake_args.append('-DHAVE_NCCL=1')
 
       # add CUDA args
       nvcc_path = find_in_path('nvcc', os.environ['PATH'])
@@ -103,10 +137,7 @@ class CMakeBuildExt(build_ext):
       
       cuda_home = os.path.dirname(os.path.dirname(nvcc_path))
 
-      if platform.system() == 'Linux' or platform.system() == 'Darwin':
-        cmake_args.append('-DCUDA_INCLUDE_DIRS=' + os.path.join(cuda_home, 'include') + ';/usr/local')
-      else:
-        cmake_args.append('-DCUDA_INCLUDE_DIRS=' + os.path.join(cuda_home, 'include'))
+      cmake_args.append('-DCUDA_INCLUDE_DIRS=' + os.path.join(cuda_home, 'include') + ';/usr/local')
 
       cuda_lib_folder = os.path.join(cuda_home, 'lib64')
 
@@ -116,7 +147,38 @@ class CMakeBuildExt(build_ext):
                               os.path.splitext(file)[-1] in lib_suffix]
       
       cmake_args.append('-DCUDA_LIB_PATHS=' + ';'.join(cuda_lib_paths))
-    
+      
+      print('CUDA_INCLUDE_DIRS:', os.path.join(cuda_home, 'include'))
+      print('CUDA_LIB_PATHS:', ';'.join(cuda_lib_paths))
+
+      # add NCCL args
+      nccl_header_search_folders = ['/usr/include', '/usr/local/include']
+
+      if os.environ['NCCL_DIR']:
+        nccl_header_search_folders.append(os.environ['NCCL_DIR'] + '/include')
+      
+      nccl_header_file_path = find_file_in_folders(nccl_header_search_folders, 'nccl.h')
+
+      if nccl_header_file_path is None:
+        raise ValueError('Can not find nccl.h file, please set NCC_DIR environment and try again')
+      
+      cmake_args.append('-DNCCL_INCLUDE_DIRS=' + os.path.dirname(nccl_header_file_path))
+
+      nccl_lib_search_folders = ['/lib', '/lib64', '/usr/lib', '/usr/lib64', '/usr/local/lib', '/usr/local/lib64']
+
+      if os.environ['NCCL_DIR']:
+        nccl_lib_search_folders.append(os.environ['NCCL_DIR'] + '/lib')
+      
+      nccl_lib_file_path = find_file_in_folders(nccl_lib_search_folders, 'libnccl.so')
+
+      if nccl_lib_file_path is None:
+        raise ValueError('Can not find libnccl.so file, please set NCC_DIR environment and try again')
+
+      cmake_args.append('-DNCCL_LIB_PATHS=' + nccl_lib_file_path)
+
+      print('NCCL_INCLUDE_DIRS:', os.path.dirname(nccl_header_file_path))
+      print('NCCL_LIB_PATHS:', nccl_lib_file_path)
+
     cfg = 'Debug' if self.debug else 'Release'
     build_args = ['--config', cfg]
 
@@ -154,7 +216,7 @@ setup(
     author_email='amazingyyc@outlook.com',
     zip_safe=False,
     packages=['dadt', 'dadt/tensorflow'],
-    ext_modules=[CMakeExtension(name='dadt', build_for_gpu=False, cmake_dir='.')],
+    ext_modules=[CMakeExtension(name='dadt', build_for_nccl=False, cmake_dir='.')],
     cmdclass={'build_ext' : CMakeBuildExt},
 )
 
