@@ -4,6 +4,11 @@
 #include <iostream>
 #include <mpi.h>
 
+#ifdef HAVE_NCCL
+#include <cuda_runtime.h>
+#include <nccl.h>
+#endif
+
 #include "definition.h"
 
 // define the half

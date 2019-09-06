@@ -1,3 +1,4 @@
+#include "definition.h"
 #include "nccl_all_reduce_executor.h"
 
 namespace dadt {

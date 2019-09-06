@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 11)
 # print debug log
 # add_definitions(-DDEBUG_LOG)
 
+# add nccl definition
+if (HAVE_NCCL)
+  dd_definitions(-DHAVE_NCCL)
+endif()
+
 # find mpi
 find_package(MPI REQUIRED)
 

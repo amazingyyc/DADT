@@ -34,13 +34,13 @@ def find_in_path(name, path):
 '''find a file in folder'''
 def find_file_in_folder(folder, name):
   for file_name in os.listdir(folder):
-    file_path = os.path.join(folder, name)
+    file_path = os.path.join(folder, file_name)
 
     if os.path.isfile(file_path):
       if file_name == name:
         return file_path
     elif os.path.isdir(file_path):
-      correct_path = find_library_in_folder(file_path, name)
+      correct_path = find_file_in_folder(file_path, name)
 
       if None != correct_path:
         return correct_path
@@ -49,7 +49,7 @@ def find_file_in_folder(folder, name):
 
 def find_file_in_folders(folders, name):
   for folder in folders:
-    correct_path = find_library_in_folder(folder, name)
+    correct_path = find_file_in_folder(folder, name)
 
     if None != correct_path:
       return correct_path

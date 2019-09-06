@@ -25,7 +25,7 @@ private:
   int gpu_device_id_;
 
   // use a event wait all reduce finish
-  cudaEvent finish_event_;
+  cudaEvent_t finish_event_;
 
 public:
   // gpu_device_id: gpu device
@@ -43,3 +43,5 @@ public:
 };
 
 }
+
+#endif
