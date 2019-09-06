@@ -92,7 +92,7 @@ def cnn_model_fn(features, labels, mode):
 
 def main(unused_argv):
   '''init dadt'''
-  dadt.init()
+  dadt.init(all_reduce_executor_type=0)
 
   # Load training and eval data
   mnist = tf.contrib.learn.datasets.load_dataset("mnist")
@@ -101,10 +101,29 @@ def main(unused_argv):
   eval_data    = mnist.test.images  # Returns np.array
   eval_labels  = np.asarray(mnist.test.labels, dtype=np.int32)
 
+  config = tf.ConfigProto()
+  config.gpu_options.allow_growth = True
+  config.gpu_options.visible_device_list = str(dadt.local_rank())
+
+  run_config = tf.contrib.tpu.RunConfig(
+    session_config=config,
+    cluster=None,
+    model_dir="model" + str(dadt.rank()),
+    save_checkpoints_steps=1000,
+    tpu_config=None)
+
   # Create the Estimator
-  mnist_classifier = tf.estimator.Estimator(
-      model_fn=cnn_model_fn,
-      model_dir="model" + str(dadt.rank()))
+  # mnist_classifier = tf.estimator.Estimator(
+  #     config=run_config,
+  #     model_fn=cnn_model_fn)
+
+  estimator = tf.contrib.tpu.TPUEstimator(
+    use_tpu=False,
+    model_fn=cnn_model_fn,
+    config=run_config,
+    train_batch_size=10,
+    eval_batch_size=10,
+    predict_batch_size=10)
 
   # Set up logging for predictions
   # tensors_to_log = {"predictions": "softmax_tensor"}

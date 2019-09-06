@@ -48,6 +48,7 @@ namespace dadt {
     oss << __FILE__ << ":";                                                     \
     oss << __LINE__ << ":\n";                                                   \
     oss << "MPI error string:" << std::string(mpi_error_str) << ".";            \
+    throw std::runtime_error(oss.str());                                        \
   }                                                                             \
 }
 
@@ -57,23 +58,27 @@ namespace dadt {
 {                                                                               \
   auto ret = (cudaExecute);                                                     \
   if (ret != cudaSuccess) {                                                     \
-    DEEP8_RUNTIME_ERROR("the CUDA get a error: "                                \
-    << #cudaExecute                                                             \
-    << ","                                                                      \
-    << cudaGetErrorString(ret));                                                \
+    std::ostringstream oss;                                                     \
+    oss << __FILE__ << ":";                                                     \
+    oss << __LINE__ << ":\n";                                                   \
+    oss << "CUDA get a error: ";                                                \
+    oss << cudaGetErrorString(ret);                                             \
+    throw std::runtime_error(oss.str());                                        \
   }                                                                             \
-};                                                                              \
+};
 
 #define NCCL_CALL(ncclExecute)                                                  \
 {                                                                               \
   auto ret = (ncclExecute);                                                     \
   if (ret != ncclSuccess) {                                                     \
-    DEEP8_RUNTIME_ERROR("the NCCL get a error: "                                \
-    << #ncclExecute                                                             \
-    << ","                                                                      \
-    << ncclGetErrorString(ret));                                                \
+    std::ostringstream oss;                                                     \
+    oss << __FILE__ << ":";                                                     \
+    oss << __LINE__ << ":\n";                                                   \
+    oss << "NCCL get a error: ";                                                \
+    oss << ncclGetErrorString(ret);                                             \
+    throw std::runtime_error(oss.str());                                        \
   }                                                                             \
-};                                                                              \
+};
 
 #endif
 

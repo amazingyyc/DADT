@@ -6,9 +6,13 @@ set(CMAKE_CXX_STANDARD 11)
 # print debug log
 # add_definitions(-DDEBUG_LOG)
 
+if (ADD_GLIBCXX_USE_CXX11_ABI)
+  add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+endif()
+
 # add nccl definition
 if (HAVE_NCCL)
-  dd_definitions(-DHAVE_NCCL)
+  add_definitions(-DHAVE_NCCL)
 endif()
 
 # find mpi

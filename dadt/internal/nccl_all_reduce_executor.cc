@@ -62,7 +62,7 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
     ARGUMENT_CHECK(element_type == task.tensor->element_type(), "NCCL all reduce only support half/float/double");
   }
 
-  void *recvbuff = nullptr;
+  void *recvbuf = nullptr;
   size_t count = 0;
 
   if (tasks.size() > 1) {
@@ -95,7 +95,7 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
   // all reduce
   auto nccl_dtype = nccl_data_type(context, tasks[0].tensor->element_type());
 
-  NCCL_CALL(ncclAllReduce(recvbuff, recvbuff, count, nccl_dtype, ncclSum, context.nccl_comm, context.cuda_stream));
+  NCCL_CALL(ncclAllReduce(recvbuf, recvbuf, count, nccl_dtype, ncclSum, context.nccl_comm, context.cuda_stream));
 
   // copy back
   if (tasks.size() > 1) {

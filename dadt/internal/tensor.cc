@@ -98,7 +98,7 @@ void Tensor::copy_to(void *data, bool is_gpu) {
     } else {
       // copy memory from gpu to cpu
 #ifdef HAVE_NCCL
-      CUDA_CALL(cudaMemcpy(dadt, ptr(), num_bytes(), cudaMemcpyDeviceToHost));
+      CUDA_CALL(cudaMemcpy(data, ptr(), num_bytes(), cudaMemcpyDeviceToHost));
 #else
       RUNTIME_ERROR("compile without CUDA, can not call CUDA function");
 #endif

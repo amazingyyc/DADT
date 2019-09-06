@@ -40,8 +40,8 @@ dadt_native_module = ctypes.CDLL(dadt_library_path, mode=ctypes.RTLD_GLOBAL)
 dadt_native_module.init.argtypes = (Config, )
 
 '''init dadt'''
-def init(config = Config(cycle_duration_ms=5, all_reduce_executor_type=0)):
-  dadt_native_module.init(config)
+def init(cycle_duration_ms=5, all_reduce_executor_type=0):
+  dadt_native_module.init(Config(cycle_duration_ms=cycle_duration_ms, all_reduce_executor_type=all_reduce_executor_type))
 
 def shutdown():
   dadt_native_module.shutdown()

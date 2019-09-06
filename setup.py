@@ -102,11 +102,20 @@ class CMakeBuildExt(build_ext):
     # cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + ext_dir, '-DPYTHON_EXECUTABLE=' + sys.executable]
     cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + ext_dir]
 
+    # check gcc version whether add -D_GLIBCXX_USE_CXX11_ABI=0 when build.
+    try:
+      gcc_out = subprocess.check_output(['gcc', '-v'], stderr=subprocess.STDOUT)
+    except OSError:
+      raise RuntimeError('get gcc version get error!')
+    print("gcc_out.decode()", gcc_out.decode())
+    if 'Linux' == platform.system():
+      gcc_version = LooseVersion(re.search(r'version\s*([\d.]+)', gcc_out.decode()).group(1))
+
+      if gcc_version >= '5':
+        cmake_args.append('-DADD_GLIBCXX_USE_CXX11_ABI=1')
+
     # add tensorflow args
     cmake_args.append('-DTENSORFLOW_INCLUDE_DIRS=' + tf.sysconfig.get_include())
-        
-    # -D_GLIBCXX_USE_CXX11_ABI=0
-    # cmake_args.append('-D_GLIBCXX_USE_CXX11_ABI=0')
 
     # tf lib folder
     tf_lib_folder = tf.sysconfig.get_lib()
@@ -125,8 +134,7 @@ class CMakeBuildExt(build_ext):
       if 'Linux' != platform.system():
         raise ValueError('build_for_nccl only works for Linux.')
 
-      # set CUDA and NCCL build flag
-      cmake_args.append('-DHAVE_CUDA=1')
+      # set NCCL build flag
       cmake_args.append('-DHAVE_NCCL=1')
 
       # add CUDA args
@@ -154,7 +162,7 @@ class CMakeBuildExt(build_ext):
       # add NCCL args
       nccl_header_search_folders = ['/usr/include', '/usr/local/include']
 
-      if os.environ['NCCL_DIR']:
+      if 'NCCL_DIR' is os.environ.keys():
         nccl_header_search_folders.append(os.environ['NCCL_DIR'] + '/include')
       
       nccl_header_file_path = find_file_in_folders(nccl_header_search_folders, 'nccl.h')
@@ -166,7 +174,7 @@ class CMakeBuildExt(build_ext):
 
       nccl_lib_search_folders = ['/lib', '/lib64', '/usr/lib', '/usr/lib64', '/usr/local/lib', '/usr/local/lib64']
 
-      if os.environ['NCCL_DIR']:
+      if 'NCCL_DIR' in os.environ.keys():
         nccl_lib_search_folders.append(os.environ['NCCL_DIR'] + '/lib')
       
       nccl_lib_file_path = find_file_in_folders(nccl_lib_search_folders, 'libnccl.so')
