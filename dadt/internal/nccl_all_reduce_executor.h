@@ -29,7 +29,6 @@ private:
 
 public:
   // gpu_device_id: gpu device
-  // buffer_size: memory buffer size
   NCCLAllReduceExecutor(int gpu_device_id);
 
   ~NCCLAllReduceExecutor();

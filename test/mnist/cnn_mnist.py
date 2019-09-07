@@ -92,7 +92,7 @@ def cnn_model_fn(features, labels, mode):
 
 def main(unused_argv):
   '''init dadt'''
-  dadt.init(all_reduce_executor_type=0)
+  dadt.init(cycle_duration_ms=3, all_reduce_executor_type=1)
 
   # Load training and eval data
   mnist = tf.contrib.learn.datasets.load_dataset("mnist")
@@ -100,41 +100,26 @@ def main(unused_argv):
   train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
   eval_data    = mnist.test.images  # Returns np.array
   eval_labels  = np.asarray(mnist.test.labels, dtype=np.int32)
+  
+  session_config = tf.ConfigProto()
+  session_config.gpu_options.allow_growth = True
+  session_config.gpu_options.visible_device_list = str(dadt.local_rank())
 
-  config = tf.ConfigProto()
-  config.gpu_options.allow_growth = True
-  config.gpu_options.visible_device_list = str(dadt.local_rank())
+  run_config = tf.estimator.RunConfig(
+    model_dir='model' + str(dadt.local_rank()),
+    session_config=session_config,
+    train_distribute=None)
 
-  run_config = tf.contrib.tpu.RunConfig(
-    session_config=config,
-    cluster=None,
-    model_dir="model" + str(dadt.rank()),
-    save_checkpoints_steps=1000,
-    tpu_config=None)
-
-  # Create the Estimator
-  # mnist_classifier = tf.estimator.Estimator(
-  #     config=run_config,
-  #     model_fn=cnn_model_fn)
-
-  estimator = tf.contrib.tpu.TPUEstimator(
-    use_tpu=False,
+  mnist_classifier = tf.estimator.Estimator(
+    model_dir='model' + str(dadt.local_rank()),
     model_fn=cnn_model_fn,
-    config=run_config,
-    train_batch_size=10,
-    eval_batch_size=10,
-    predict_batch_size=10)
-
-  # Set up logging for predictions
-  # tensors_to_log = {"predictions": "softmax_tensor"}
-  # logging_hook = tf.train.LoggingTensorHook(
-  #    tensors=tensors_to_log, every_n_iter=10)
+    config=run_config)
 
   def train_input_fn(params):
     """An input function for training"""
     dataset = tf.data.Dataset.from_tensor_slices(({"x": train_data}, train_labels))
 
-    dataset = dataset.shard(dadt.size(), dadt.rank()).shuffle(100).repeat().batch(10)
+    dataset = dataset.shard(dadt.size(), dadt.rank()).shuffle(100).repeat().batch(100)
 
     return dataset
 

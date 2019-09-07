@@ -227,12 +227,3 @@ setup(
     ext_modules=[CMakeExtension(name='dadt', build_for_nccl=False, cmake_dir='.')],
     cmdclass={'build_ext' : CMakeBuildExt},
 )
-
-
-
-
-
-
-
-
-

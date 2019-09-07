@@ -8,3 +8,4 @@ test/minist/MNIST-data/
 test/minist/model/
 test/minist/model0/
 test/minist/model1/
+test/mnist/MNIST-data/

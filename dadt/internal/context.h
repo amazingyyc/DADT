@@ -56,6 +56,9 @@ struct Context {
   MPI_Datatype MPI_FLOAT16_T;
 
 #ifdef HAVE_NCCL
+  // gpu_device_id always equal local_rank.
+  int gpu_device_id;
+
   // cuda stream
   cudaStream_t cuda_stream;
 

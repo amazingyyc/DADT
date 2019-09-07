@@ -72,24 +72,35 @@ void Commander::init_context(Config config) {
   context_.MPI_FLOAT16_T = MPI_FLOAT16_T;
 
 #ifdef HAVE_NCCL
-  // cuda stream
-  int greatest_priority;
+  context_.gpu_device_id = context_.local_rank;
 
-  CUDA_CALL(cudaDeviceGetStreamPriorityRange(nullptr, &greatest_priority));
-  CUDA_CALL(cudaStreamCreateWithPriority(&context_.cuda_stream, cudaStreamNonBlocking, greatest_priority));
+  // set CPU device
+  CUDA_CALL(cudaSetDevice(context_.gpu_device_id));
+
+  // cuda stream
+  int priority;
+
+  CUDA_CALL(cudaDeviceGetStreamPriorityRange(nullptr, &priority));
+  CUDA_CALL(cudaStreamCreateWithPriority(&(context_.cuda_stream), cudaStreamNonBlocking, priority));
 
   // after create the mpi comm
   // will create nccl context
+  ncclUniqueId nccl_id;
   if (0 == context_.world_rank) {
-    NCCL_CALL(ncclGetUniqueId(&context_.nccl_id));
+    NCCL_CALL(ncclGetUniqueId(&nccl_id));
   }
 
   // broad cast to other rank
-  MPI_CALL(MPI_Bcast((void*)&(context_.nccl_id), sizeof(context_.nccl_id), MPI_BYTE, 0, context_.world_comm));
+  MPI_CALL(MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, context_.world_comm));
 
+  ncclComm_t nccl_comm;
   // init nccl comm
-  NCCL_CALL(ncclCommInitRank(&context_.nccl_comm, context_.world_size, context_.nccl_id, context_.world_rank));
+  NCCL_CALL(ncclCommInitRank(&nccl_comm, context_.world_size, nccl_id, context_.world_rank));
 
+  context_.nccl_id   = nccl_id;
+  context_.nccl_comm = nccl_comm;
+
+  MPI_CALL(MPI_Barrier(context_.world_comm));
 #endif
 
   // set cycle time
@@ -107,7 +118,7 @@ void Commander::init_context(Config config) {
     task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
   } else if (1 == config.all_reduce_executor_type) {
 #ifdef HAVE_NCCL
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.world_rank);
+    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
