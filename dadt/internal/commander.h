@@ -50,6 +50,9 @@ private:
   // initialize context
   void init_context(Config);
 
+  // clean context, call in the same thread with init_context
+  void clear_context();
+
   // exchange string with special MPI_Comm
   // return is a string array corresponding the rank index
   std::vector<std::string> exchange_string(MPI_Comm mpi_comm, int rank, int size, std::string &str); 

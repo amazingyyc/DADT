@@ -130,6 +130,25 @@ void Commander::init_context(Config config) {
   initialized_ = true;
 }
 
+void Commander::clear_context() {
+  // clean executor, everyexecutor should clean it's resource when call deinit function
+  task_executors_.clear();
+
+#ifdef HAVE_NCCL
+  // clear cuda and nccl resource
+  NCCL_CALL(ncclCommDestroy(context_.nccl_comm));
+  CUDA_CALL(cudaStreamDestroy(context_.cuda_stream));
+
+#endif
+
+  // clean mpi
+  MPI_CALL(MPI_Type_free(&context_.MPI_FLOAT16_T));
+  MPI_CALL(MPI_Comm_free(&context_.cross_comm));
+  MPI_CALL(MPI_Comm_free(&context_.local_comm));
+  MPI_CALL(MPI_Comm_free(&context_.world_comm));
+  MPI_CALL(MPI_Finalize());
+}
+
 // exchange string with special MPI_Comm
 // return is a string array corresponding the rank index
 std::vector<std::string> Commander::exchange_string(MPI_Comm mpi_comm, int rank, int size, std::string &str) {
@@ -496,12 +515,8 @@ void Commander::worker_do_cycle(Config config) {
     }
   }
 
-  // clean mpi
-  MPI_CALL(MPI_Type_free(&context_.MPI_FLOAT16_T));
-  MPI_CALL(MPI_Comm_free(&context_.cross_comm));
-  MPI_CALL(MPI_Comm_free(&context_.local_comm));
-  MPI_CALL(MPI_Comm_free(&context_.world_comm));
-  MPI_CALL(MPI_Finalize());
+  // when shutdown clear the resource.
+  clear_context();
 }
 
 std::shared_ptr<LockTensor> Commander::have_midway_tensor(TaskType task_type, std::string name) {
