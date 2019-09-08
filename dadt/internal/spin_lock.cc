@@ -5,10 +5,6 @@ namespace dadt {
 SpinLock::SpinLock(int initialize_value): lock_(initialize_value) {
 }
 
-/**
- * wait until the lock is old_value
- * than chang it to new_value
- */
 void SpinLock::compare_exchange(int old_value, int new_value) {
   auto expected = old_value;
 
@@ -17,11 +13,6 @@ void SpinLock::compare_exchange(int old_value, int new_value) {
   }
 }
 
-/**
- * if the lock is new_value than return
- * if the lock is old_value than change it to new_value return
- * if the lock is another value just wait
- */
 void SpinLock::wait(int old_value, int new_value) {
   auto expected = new_value;
 

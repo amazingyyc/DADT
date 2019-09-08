@@ -15,6 +15,11 @@ struct Config {
   // background thread sleep time, millisecond
   int cycle_duration_ms;
 
+  // what kind broad cast executor used
+  // 0: mpi
+  // 1: nccl
+  int broad_cast_executor_type;
+
   // what kind all reduce executor should be used
   // 0: mpi all reduce
   // 1: nccl all reduce
@@ -22,7 +27,7 @@ struct Config {
 };
 
 // context include the MPI context
-// and some env
+// and some config
 struct Context {
   // the MPI word communicator include all process
   // the process size
@@ -38,7 +43,7 @@ struct Context {
   int local_size;
   int local_rank;
 
-  // cross comm, the same index of every machine will in the same cross communicator
+  // cross comm, the same index of every process will in the same cross communicator
   MPI_Comm cross_comm;
   int cross_rank;
   int cross_size;

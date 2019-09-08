@@ -21,6 +21,7 @@
 #include "mpi_broad_cast_executor.h"
 
 #ifdef HAVE_NCCL 
+#include "nccl_broad_cast_executor.h"
 #include "nccl_all_reduce_executor.h"
 #endif
 
@@ -114,6 +115,19 @@ void Commander::init_context(Config config) {
   // set broadcast executor
   task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
 
+  // create broadcast executor
+  if (0 == config.broad_cast_executor_type) {
+    task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
+  } else if (1 == config.broad_cast_executor_type) {
+#ifdef HAVE_NCCL
+    task_executors_[DADTBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(context_.gpu_device_id);
+#else
+    RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
+#endif
+  } else {
+    RUNTIME_ERROR("broad_cast_executor_type error, please set to be 0(MPI) or 1(NCCL)");
+  }
+
   if (0 == config.all_reduce_executor_type) {
     task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
   } else if (1 == config.all_reduce_executor_type) {
@@ -131,14 +145,13 @@ void Commander::init_context(Config config) {
 }
 
 void Commander::clear_context() {
-  // clean executor, everyexecutor should clean it's resource when call deinit function
+  // clean executor, every executor should clean it's resource when call deinit function
   task_executors_.clear();
 
 #ifdef HAVE_NCCL
   // clear cuda and nccl resource
   NCCL_CALL(ncclCommDestroy(context_.nccl_comm));
   CUDA_CALL(cudaStreamDestroy(context_.cuda_stream));
-
 #endif
 
   // clean mpi
@@ -434,6 +447,22 @@ void Commander::async_job(std::function<void()> &&task) {
   async_queue_.enqueue(std::move(task));
 }
 
+std::shared_ptr<LockTensor> Commander::have_midway_tensor(TaskType task_type, std::string name) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
+  return task_executors_[task_type]->have_midway_tensor(name);
+}
+
+// get a interim tensor by TaskType
+std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
+                                                            std::string name,
+                                                            std::vector<int> dims,
+                                                            ElementType element_type) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
+  return task_executors_[task_type]->create_midway_tensor(name, dims, element_type);
+}
+
 // get the message from the queue and allreduce cross all node
 bool Commander::worker_do_task() {
   std::vector<Task> tasks;
@@ -519,20 +548,5 @@ void Commander::worker_do_cycle(Config config) {
   clear_context();
 }
 
-std::shared_ptr<LockTensor> Commander::have_midway_tensor(TaskType task_type, std::string name) {
-  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
-
-  return task_executors_[task_type]->have_midway_tensor(name);
-}
-
-// get a interim tensor by TaskType
-std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
-                                                            std::string name,
-                                                            std::vector<int> dims,
-                                                            ElementType element_type) {
-  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
-
-  return task_executors_[task_type]->create_midway_tensor(name, dims, element_type);
-}
 
 }

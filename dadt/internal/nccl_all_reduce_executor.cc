@@ -5,7 +5,7 @@ namespace dadt {
 
 NCCLAllReduceExecutor::NCCLAllReduceExecutor(int gpu_device_id)
 : gpu_device_id_(gpu_device_id), buffer_(get_gpu_device(gpu_device_id)) {
-  // when init reserve a 64mb buffer
+  // when init reserve a 64MB buffer
   size_t buffer_size = 64 * 1024 * 1024;
   buffer_.reserve(buffer_size);
 
@@ -17,7 +17,6 @@ NCCLAllReduceExecutor::~NCCLAllReduceExecutor() {
   CUDA_CALL(cudaEventDestroy(finish_event_));
 }
 
-// if has already create a midway tensor
 std::shared_ptr<LockTensor> NCCLAllReduceExecutor::have_midway_tensor(std::string name) {
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];

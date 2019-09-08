@@ -9,7 +9,7 @@ namespace dadt {
 
 class TensorStorage: public std::enable_shared_from_this<TensorStorage> {
 private:
-    // the device that hold the memory
+  // the device that hold the memory
   std::shared_ptr<Device> device_;
 
   // memory pointer

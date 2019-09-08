@@ -5,7 +5,6 @@ namespace dadt {
 MPIBroadCastExecutor::MPIBroadCastExecutor() {
 }
 
-// if has already create a midway tensor
 std::shared_ptr<LockTensor> MPIBroadCastExecutor::have_midway_tensor(std::string name) {
   return std::shared_ptr<LockTensor>();
 }

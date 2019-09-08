@@ -6,7 +6,6 @@ namespace dadt {
 MPIAllReduceExecutor::MPIAllReduceExecutor(): buffer_(get_cpu_device()) {
 }
 
-// if has already create a midway tensor
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::have_midway_tensor(std::string name) {
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
@@ -20,7 +19,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::stri
     // have created the tensor, resue it
     auto tensor = tensor_pool_[name];
 
-    ARGUMENT_CHECK(tensor->shape() == Shape(dims) && tensor->element_type() == element_type, "get tesnor error!");
+    ARGUMENT_CHECK(tensor->shape() == Shape(dims) && tensor->element_type() == element_type, "get tensor error!");
 
     return tensor;
   }
@@ -41,7 +40,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::stri
 }
 
 void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
-  // mpi all reduce only support cpu tensor and float
+  // mpi all reduce only support cpu tensor and float/double
   auto element_type = tasks[0].tensor->element_type();
 
   ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(), "MPIAllReduceExecutor only support float/double");
@@ -59,7 +58,7 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     size_t memory_size = 0;
 
     for (auto &task : tasks) {
-      count       += task.tensor->size();
+      count += task.tensor->size();
       memory_size += task.tensor->num_bytes();
     }
 

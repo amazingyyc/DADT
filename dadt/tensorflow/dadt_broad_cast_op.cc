@@ -33,7 +33,6 @@ public:
     // get the interim tensor
     auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, midway_name, dims, element_type);
 
-    // copy input to interim tensor
     bool is_gpu = is_gpu_conext(context);
 
     // copy to midway tesnor

@@ -27,11 +27,10 @@ public:
   ncclDataType_t nccl_data_type(const Context &context, ElementType element_type);
 #endif
 
-  // if has already create a midway tensor
   virtual std::shared_ptr<LockTensor> have_midway_tensor(std::string name) = 0;
 
   // a executor may need a interim tensor to store the data and every executor may need different device tensor
-  // li MPI broadcast need cpu tesnor
+  // like MPI broadcast need cpu tesnor
   virtual std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) = 0;
 
   // tasks will contain the task that have the some tasktype

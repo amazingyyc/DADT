@@ -13,9 +13,11 @@
 
 // define the half
 #ifndef HAVE_NCCL
+
 typedef struct half_ {
   uint16_t value;
 } half;
+
 #endif
 
 // define a unknow type

@@ -20,7 +20,7 @@ const TaskType DADTBroadCastTaskType = 1;
 
 // a task struct
 struct Task {
-  // task type for now only support all reduce, broadcast
+  // task type for now only support all reduce, broadcast, shutdown
   TaskType task_type;
 
   // every tensor/op have a unique name

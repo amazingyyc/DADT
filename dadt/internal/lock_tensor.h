@@ -13,21 +13,20 @@
 
 namespace dadt {
 
-/**
- * the lock tensor is a tensor add a spin lock
- * at every different status the tensor should do different operator
- * 
- * the  lock tensor status transition steps
- * InFill: when compute thread begin to fill data, than the status become InFill
- * InAllReduce: alter fill new data, the tensor will put in a queue to do all reduce, at here the status become InAllReduce
- * WaitForFetch: alter reduce thread exhcange data cross all node the tensor status will become WaitForFetch
- * InFetch: the compute thread is fetch data from the tensor
- * alter finish fetch than status become InFill
- */
+
+// the lock tensor is a tensor add a spin lock
+// at every different status the tensor should do different operator
+// 
+// the lock tensor status transition steps
+// InFill: when compute thread begin to fill data, than the status become InFill
+// InExecute: after fill new data, the tensor will put in a queue to do task, at here the status become InExecute
+// WaitForFetch: alter reduce thread exhcange data cross all node the tensor status will become WaitForFetch
+// InFetch: the compute thread is fetch data from the tensor
+// alter finish fetch than status become InFill
 enum class LockTensorStatus: int {
   InFill       = 1, // the compute thread is filling data to this tensor
   InExecute    = 2, // after fill new data than the tensor will be in put it a queue than will do allreduce or broadcast
-  WaitForFetch = 3, //after all reduce the tensor will wait the compute to fetch back
+  WaitForFetch = 3, // after all reduce the tensor will wait the compute to fetch back
   InFetch      = 4, // the compute thread is fetch the data back in fetch
 };
 

@@ -13,7 +13,6 @@
 namespace dadt {
 
 // a simple thread pool
-// we do not the thread always running, so in the simplrthreadpool use mutex
 class ThreadPool {
 private:
   // thread
@@ -22,7 +21,7 @@ private:
   // a queue
   std::queue<std::function<void()>> task_queue_;
 
-  // if it has been stopped
+  // whether it has been stopped
   std::atomic<bool> stopped_;
 
   //the mutex

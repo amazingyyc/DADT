@@ -1,8 +1,11 @@
-#ifndef MPI_ALL_REDUCE_EXECUTOR_H
-#define MPI_ALL_REDUCE_EXECUTOR_H
+#ifndef NCCL_BROAD_CAST_EXECUTOR_H
+#define NCCL_BROAD_CAST_EXECUTOR_H
 
 #include <iostream>
 #include <unordered_map>
+
+#include <cuda_runtime.h>
+#include <nccl.h>
 
 #include "device.h"
 #include "task_executor.h"
@@ -10,17 +13,20 @@
 
 namespace dadt {
 
-class MPIAllReduceExecutor: public ITaskExecutor {
+class NCCLBroadCastExecutor: public ITaskExecutor {
 private:
-  // allreduce will reuse the tensor, so use a map to store it
-  std::unordered_map<std::string, std::shared_ptr<LockTensor>> tensor_pool_;
+  // gpu device id
+  int gpu_device_id_;
 
-  MemoryBuffer buffer_;
+  // use a event wait cuda stream finish
+  cudaEvent_t finish_event_;
 
 public:
-  MPIAllReduceExecutor();
+  // gpu_device_id: gpu device
+  NCCLBroadCastExecutor(int gpu_device_id);
 
-  // whether already create a midway tensor
+  ~NCCLBroadCastExecutor();
+
   std::shared_ptr<LockTensor> have_midway_tensor(std::string name) override;
   
   std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
@@ -29,5 +35,3 @@ public:
 };
 
 }
-
-#endif

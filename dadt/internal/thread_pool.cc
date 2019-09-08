@@ -50,7 +50,7 @@ void ThreadPool::do_task() {
       return this->stopped_ || !this->task_queue_.empty();
     });
 
-    // if the queue has task
+    // whether the queue has task
     if (!task_queue_.empty()) {
       auto task = std::move(task_queue_.front());
       task_queue_.pop();

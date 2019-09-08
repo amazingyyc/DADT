@@ -12,13 +12,15 @@ from tensorflow.python.ops import sparse_ops
 
 '''
 dadt config
-cycle_duration_ms: ackground thread sleep time, millisecond
-what kind all reduce executor should be used
+cycle_duration_ms: background thread sleep time, millisecond
+broad_cast_executor_type: 0: mpi broad cast, 1: nccl broadcast
+all_reduce_executor_type:what kind all reduce executor should be used
 0: mpi all reduce
 1: nccl all reduce
 '''
 class Config(ctypes.Structure):
   _fields_ = [("cycle_duration_ms", ctypes.c_int), 
+              ("broad_cast_executor_type", ctypes.c_int),
               ("all_reduce_executor_type", ctypes.c_int)]
 
 if 'Windows' == platform.system():
@@ -40,13 +42,16 @@ dadt_native_module = ctypes.CDLL(dadt_library_path, mode=ctypes.RTLD_GLOBAL)
 dadt_native_module.init.argtypes = (Config, )
 
 '''init dadt'''
-def init(cycle_duration_ms=5, all_reduce_executor_type=0):
-  dadt_native_module.init(Config(cycle_duration_ms=cycle_duration_ms, all_reduce_executor_type=all_reduce_executor_type))
+def init(cycle_duration_ms=5, broad_cast_executor_type=0, all_reduce_executor_type=0):
+  dadt_native_module.init(Config(cycle_duration_ms=cycle_duration_ms,
+                                 broad_cast_executor_type=broad_cast_executor_type,
+                                 all_reduce_executor_type=all_reduce_executor_type))
 
+'''shutdown whole system'''
 def shutdown():
   dadt_native_module.shutdown()
 
-'''if have been initialized'''
+'''whether have been initialized'''
 def initialized():
   return dadt_native_module.initialized()
 
@@ -79,7 +84,7 @@ def normalize_name(name):
     return re.sub('[^a-zA-Z0-9_]', '_', name)
 
 '''
-all reduce op, the allreduce is async op, so when firt call this function it will return 0 
+all reduce op, the allreduce is async op, so when firt call this function it will get 0 
 '''
 def all_reduce(tensor, name=None):
   if name is None:
@@ -105,6 +110,20 @@ class BroadcastTrainableVariablesHook(tf.train.SessionRunHook):
     assign_ops = [tf.assign(var, broad_cast(var)) for var in tf.trainable_variables()]
     self.broad_cast_op = tf.group(*assign_ops)
 
+  def after_create_session(self, session, coord):
+    session.run(self.broad_cast_op)
+
+'''a session hook, will broad cast Global Variable from rank 0 to other ranks'''
+class BroadcastGlobalVariablesHook(tf.train.SessionRunHook):
+  def __init__(self):
+    super(BroadcastGlobalVariablesHook, self).__init__()
+
+    self.broad_cast_op = None
+
+  def begin(self):
+    assign_ops = [tf.assign(var, broad_cast(var)) for var in tf.global_variables()]
+    self.broad_cast_op = tf.group(*assign_ops)
+  
   def after_create_session(self, session, coord):
     session.run(self.broad_cast_op)
 
@@ -147,13 +166,13 @@ class DistributedOptimizer(tf.train.Optimizer):
       return origin_gradients
 
   def apply_gradients(self, *args, **kwargs):
-      return self._optimizer.apply_gradients(*args, **kwargs)
+    return self._optimizer.apply_gradients(*args, **kwargs)
 
   def get_slot(self, *args, **kwargs):
-      return self._optimizer.get_slot(*args, **kwargs)
+    return self._optimizer.get_slot(*args, **kwargs)
 
   def get_slot_names(self, *args, **kwargs):
-      return self._optimizer.get_slot_names(*args, **kwargs)
+    return self._optimizer.get_slot_names(*args, **kwargs)
 
   def variables(self, *args, **kwargs):
-      return self._optimizer.variables(*args, **kwargs)
+    return self._optimizer.variables(*args, **kwargs)

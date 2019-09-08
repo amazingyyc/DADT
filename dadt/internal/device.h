@@ -7,17 +7,13 @@
 
 namespace dadt{
 
-/**
- * a device type, for now only CPU
- */
+ // a device type, for now only CPU
 enum class DeviceType: int {
   CPU = 0,
   GPU = 1,
 };
 
-/**
- * used to allocate memory from device
- */
+// used to allocate memory from device
 class IAllocator {
 public:
   // malloc memory from device

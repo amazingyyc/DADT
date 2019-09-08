@@ -16,7 +16,7 @@
 
 namespace dadt {
 
-// commander of all project
+// commander of whole project
 class Commander {
 private:
   // context
@@ -25,7 +25,7 @@ private:
   // a map store the task_type with corresponding task op
   std::unordered_map<TaskType, std::shared_ptr<ITaskExecutor>> task_executors_;
 
-  // a flag represent if dadt finish initizlized
+  // a flag represent whether dadt finish initizlized
   std::atomic<bool> initialized_;
 
   // a task queue, will accept the message and a background will get the message and do the task
@@ -110,15 +110,14 @@ public:
   // put a task is async queue
   void async_job(std::function<void()> &&task);
 
-  // used for background_thread_ to do the task
-  void worker_do_cycle(Config config);
-
   // check if already create a midway tesnor
   std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType
   std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
   
+  // used for background_thread_ to do the task
+  void worker_do_cycle(Config config);
 };
 
 }
