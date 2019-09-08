@@ -112,9 +112,6 @@ void Commander::init_context(Config config) {
   // convert to microsecond
   context_.cycle_duration_us = config.cycle_duration_ms * 1000;
 
-  // set broadcast executor
-  task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
-
   // create broadcast executor
   if (0 == config.broad_cast_executor_type) {
     task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();

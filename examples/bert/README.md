@@ -27,5 +27,4 @@ mpirun -np 2 -ppn 2 -hosts localhost python3 \
 --learning_rate=2e-5 \
 --num_train_epochs=3.0 \
 --output_dir=mrpc_output/
-
 ```

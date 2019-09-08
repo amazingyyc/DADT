@@ -884,7 +884,7 @@ def main(_):
   bcast_hook = dadt.BroadcastGlobalVariablesHook()
 
   if FLAGS.do_train:
-    train_file = os.path.join(FLAGS.output_dir, str(dadt.local_rank()), "train.tf_record")
+    train_file = os.path.join(FLAGS.output_dir, "train" + str(dadt.local_rank())+ ".tf_record")
     file_based_convert_examples_to_features(
         train_examples, label_list, FLAGS.max_seq_length, tokenizer, train_file)
     tf.logging.info("***** Running training *****")
