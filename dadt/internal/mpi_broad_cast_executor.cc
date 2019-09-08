@@ -32,7 +32,7 @@ void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<
   for (auto &task : tasks) {
     ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type(), "MPIBroadCastExecutor only support CPU tensor");
 
-    void *sendbuf = task.tensor->ptr();;
+    void *sendbuf = task.tensor->ptr();
     int count     = task.tensor->size();
 
     auto mpi_dtype = mpi_data_type(context, task.tensor->element_type());

@@ -515,7 +515,6 @@ bool Commander::worker_do_task() {
     }
   }
 
-  // tell the thread if have left task
   return shutdown;
 }
 

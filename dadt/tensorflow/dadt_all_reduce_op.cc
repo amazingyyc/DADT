@@ -31,26 +31,18 @@ public:
     auto midway_tensor = dadt::have_midway_tensor(dadt::DADTAllReduceTaskType, midway_name);
 
     if (nullptr == midway_tensor) {
-      LOG_INFO(dadt::rank(), "create tensor:" << midway_name);
-
-      auto dims         = convert_tensor_shape_to_array(input.shape());
+      auto dims = convert_tensor_shape_to_array(input.shape());
       auto element_type = convert_dtype_to_element_type(input.dtype());
 
       midway_tensor = dadt::create_midway_tensor(dadt::DADTAllReduceTaskType, midway_name, dims, element_type);
-    } else {
-      LOG_INFO(dadt::rank(), "reuse tensor:" << midway_name);
     }
 
     bool is_gpu = is_gpu_conext(context);
 
     // at async queue to wait tensor finish allreduce
     dadt::async_job([midway_name, &input, output, midway_tensor, is_gpu, done] {
-      auto t1 = get_current_microseconds();
-
       // wait tensor become WaitForFetch than change it to InFetch
       midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
-
-      auto t2 = get_current_microseconds();
 
       // copy data back to output
       // memory copy in tensorflow op always sync
@@ -59,13 +51,9 @@ public:
       // change status from InFetch to InFill
       midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InFill);
 
-      auto t3 = get_current_microseconds();
-
       // copy input to tesnor
       // memory copy in tensorflow op always sync
       midway_tensor->copy_from(input.tensor_data().data(), is_gpu);
-
-      auto t4 = get_current_microseconds();
 
       // create allreduce task than put it in task queue
       dadt::Task task;
@@ -82,13 +70,6 @@ public:
 
       // put task in queue
       dadt::enqueue_task(std::move(task));
-
-      auto t5 = get_current_microseconds();
-
-      LOG_INFO(dadt::rank(), "tensor:" << midway_name << " WaitForFetch:" << (t2 - t1));
-      LOG_INFO(dadt::rank(), "tensor:" << midway_name << " copy_to:" << (t3 - t2));
-      LOG_INFO(dadt::rank(), "tensor:" << midway_name << " copy_from:" << (t4 - t3));
-      LOG_INFO(dadt::rank(), "tensor:" << midway_name << " enqueue_task:" << (t5 - t4));
 
       // tell tensorflow have finish the op
       done();
