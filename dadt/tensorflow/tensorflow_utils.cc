@@ -1,3 +1,5 @@
+#include <chrono> 
+
 #include "tensorflow_utils.h"
 
 // if the OpKernelContext is GPU
@@ -47,4 +49,10 @@ std::vector<int> convert_tensor_shape_to_array(const TensorShape& shape) {
   }
 
   return dims;
+}
+
+int64_t get_current_microseconds() {
+  auto time_now = std::chrono::system_clock::now();
+  auto duration_in_ms = std::chrono::duration_cast<std::chrono::microseconds>(time_now.time_since_epoch());
+  return duration_in_ms.count();
 }

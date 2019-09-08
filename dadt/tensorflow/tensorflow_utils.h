@@ -16,4 +16,6 @@ dadt::ElementType convert_dtype_to_element_type(DataType dtype);
 
 std::vector<int> convert_tensor_shape_to_array(const TensorShape& shape);
 
+int64_t get_current_microseconds();
+
 #endif

@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 set(CMAKE_CXX_STANDARD 11)
 
 # print debug log
-# add_definitions(-DDEBUG_LOG)
+add_definitions(-DDEBUG_LOG)
 
 if (ADD_GLIBCXX_USE_CXX11_ABI)
   add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)

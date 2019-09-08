@@ -22,10 +22,10 @@ import collections
 import csv
 import os
 import modeling
-import optimization_dadt
+import optimization_hvd
 import tokenization
 import tensorflow as tf
-import dadt.tensorflow as dadt
+import horovod.tensorflow as hvd
 
 flags = tf.flags
 
@@ -672,7 +672,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     output_spec = None
     if mode == tf.estimator.ModeKeys.TRAIN:
 
-      train_op, l2_norm = optimization_dadt.create_optimizer(
+      train_op, l2_norm = optimization_hvd.create_optimizer(
           total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
 
       # debug log
@@ -789,7 +789,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
 
 
 def main(_):
-  dadt.init(all_reduce_executor_type=1)
+  hvd.init()
 
   tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -836,7 +836,7 @@ def main(_):
 
   session_config = tf.ConfigProto()
   session_config.gpu_options.allow_growth = True
-  session_config.gpu_options.visible_device_list = str(dadt.local_rank())
+  session_config.gpu_options.visible_device_list = str(hvd.local_rank())
 
   is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
   run_config = tf.contrib.tpu.RunConfig(
@@ -844,7 +844,7 @@ def main(_):
       cluster=tpu_cluster_resolver,
       master=FLAGS.master,
       # set different folder for model output
-      model_dir=FLAGS.output_dir + str(dadt.local_rank()),
+      model_dir=FLAGS.output_dir + str(hvd.local_rank()),
       save_checkpoints_steps=FLAGS.save_checkpoints_steps,
       tpu_config=tf.contrib.tpu.TPUConfig(
           iterations_per_loop=FLAGS.iterations_per_loop,
@@ -881,10 +881,10 @@ def main(_):
       predict_batch_size=FLAGS.predict_batch_size)
 
   # create a broad cast hook
-  bcast_hook = dadt.BroadcastGlobalVariablesHook()
+  bcast_hook = hvd.BroadcastGlobalVariablesHook()
 
   if FLAGS.do_train:
-    train_file = os.path.join(FLAGS.output_dir, "train" + str(dadt.local_rank())+ ".tf_record")
+    train_file = os.path.join(FLAGS.output_dir, "train" + str(hvd.local_rank())+ ".tf_record")
     file_based_convert_examples_to_features(
         train_examples, label_list, FLAGS.max_seq_length, tokenizer, train_file)
     tf.logging.info("***** Running training *****")
@@ -989,10 +989,6 @@ def main(_):
         writer.write(output_line)
         num_written_lines += 1
     assert num_written_lines == num_actual_predict_examples
-  
-  # shutdown dadt
-  dadt.shutdown()
-
 
 if __name__ == "__main__":
   flags.mark_flag_as_required("data_dir")

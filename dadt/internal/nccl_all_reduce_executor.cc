@@ -44,7 +44,7 @@ std::shared_ptr<LockTensor> NCCLAllReduceExecutor::create_midway_tensor(std::str
 
   // the tensor in allreduce inited status is waitforfetch
   auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::WaitForFetch);
-  
+
   tensor_pool_[name] = tensor;
 
   return tensor;
