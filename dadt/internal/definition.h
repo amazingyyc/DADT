@@ -6,8 +6,6 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace dadt {
-
 #ifdef DEBUG_LOG
 #define LOG_INFO(rank, info)                                                   \
   {                                                                            \
@@ -82,6 +80,5 @@ namespace dadt {
 
 #endif
 
-}
 
 #endif

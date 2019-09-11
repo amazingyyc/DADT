@@ -58,9 +58,15 @@ void enqueue_task(Task &&t) {
 }
 
 // put a task is async queue
-void async_job(std::function<void()> &&job) {
-  commander_.async_job(std::move(job));
+void enqueue_job(std::function<void()> &&job) {
+  commander_.enqueue_job(std::move(job));
 }
+
+#ifdef HAVE_NCCL
+cudaEvent_t obtain_cuda_event(const std::string &name) {
+  commander_.obtain_cuda_event(name);
+}
+#endif
 
 std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name) {
   return commander_.have_midway_tensor(task_type, name);

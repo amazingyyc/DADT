@@ -1,3 +1,5 @@
+#define EIGEN_USE_GPU
+
 #include "tensorflow_utils.h"
 #include "internal.h"
 
@@ -8,16 +10,12 @@
 using namespace tensorflow;
 
 // at here add a new op for tensorflow to broadcast the weight
-class DadtBroadCastOp: public AsyncOpKernel {
+class DadtBroadCastOpCPU: public AsyncOpKernel {
 public:
-  explicit DadtBroadCastOp(OpKernelConstruction* context) : AsyncOpKernel(context) {
+  explicit DadtBroadCastOpCPU(OpKernelConstruction* context) : AsyncOpKernel(context) {
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
-    if (!dadt::initialized()) {
-      OP_REQUIRES(context, false, errors::InvalidArgument("dadt has not been initialized"));
-    }
-
     // get input
     auto &input = context->input(0);
 
@@ -25,44 +23,120 @@ public:
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, input.shape(), &output));
 
-    // get a interim tensor
-    auto midway_name  = name();
-    auto dims         = convert_tensor_shape_to_array(input.shape());
-    auto element_type = convert_dtype_to_element_type(input.dtype());
-  
-    // get the interim tensor
-    auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, midway_name, dims, element_type);
+    // get name
+    auto op_name = name();
 
-    bool is_gpu = is_gpu_conext(context);
+    dadt::enqueue_job([op_name, &input, output, done] {
+      // get midway tensor, all job is execute in same thread, do not need mutex
+      auto dims = convert_tensor_shape_to_array(input.shape());
+      auto element_type = convert_dtype_to_element_type(input.dtype());
 
-    // copy to midway tesnor
-    // memory copy in tensorflow op always sync
-    midway_tensor->copy_from(input.tensor_data().data(), is_gpu);
+      auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, op_name, dims, element_type);
 
-    // create a task
-    dadt::Task task;
-    task.task_type = dadt::DADTBroadCastTaskType;
-    task.name      = midway_name;
-    task.tensor    = midway_tensor;
+      // CPU op only support CPU tensor 
+      ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
+      "CPU op must use CPU tensor, so please set broad cast executor to be MPI");
 
-    task.done = [is_gpu, output, midway_tensor, done] {
-      // after broadcast should copy data to output
-      midway_tensor->copy_to((void*) output->tensor_data().data(), is_gpu);
+      // copy input to midway tensor
+      std::memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
 
-      // done callback
-      done();
-    };
-    
-    // put task in queue
-    dadt::enqueue_task(std::move(task));
+      // create a task
+      dadt::Task task;
+      task.name = op_name;
+      task.tensor = midway_tensor;
+      task.task_type = dadt::DADTBroadCastTaskType;
+
+      task.done = [output, midway_tensor, done] {
+        // after broadcast should copy data to output
+        std::memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+
+        // done callback
+        done();
+      };
+
+      // put task in queue
+      dadt::enqueue_task(std::move(task));
+    });
   }
 };
 
+#ifdef HAVE_NCCL
+class DadtBroadCastOpGPU: public AsyncOpKernel {
+public:
+  explicit DadtBroadCastOpGPU(OpKernelConstruction* context) : AsyncOpKernel(context) {
+  }
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    // get input
+    auto &input = context->input(0);
+
+    // create output
+    Tensor* output = nullptr;
+    OP_REQUIRES_OK(context, context->allocate_output(0, input.shape(), &output));
+
+    // get name
+    auto op_name = name();
+
+    // get gpudevice
+    const Eigen::GpuDevice& gpu_device = context->eigen_device<Eigen::GpuDevice>();
+
+    dadt::enqueue_job([op_name, &input, output, &gpu_device, done] {
+      // get midway tensor, all job is execute in same thread, do not need mutex
+      auto dims = convert_tensor_shape_to_array(input.shape());
+      auto element_type = convert_dtype_to_element_type(input.dtype());
+
+      auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, op_name, dims, element_type);
+
+      // copy input to tensor
+      if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
+        // copy input to cpu tensor
+        gpu_device.memcpyDeviceToHost(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+      } else {
+        // copy input to gpu tensor
+        gpu_device.memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+      }
+
+      // wait copy finish
+      auto wait_event = dadt::wait_event(op_name);
+
+      // put wait event into stream and wait event finish
+      CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
+      CUDA_CALL(cudaEventSynchronize(wait_event));
+
+      // create task
+      dadt::Task task;
+      task.name = op_name;
+      task.tensor = midway_tensor;
+      task.task_type = dadt::DADTBroadCastTaskType;
+
+      task.done = [output, midway_tensor, &gpu_device, wait_event, done] {
+        // after broadcast should copy data to output
+        if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
+          gpu_device.memcpyHostToDevice((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+        } else {
+          gpu_device.memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+        }
+
+        // wait copy finish
+        CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
+        CUDA_CALL(cudaEventSynchronize(wait_event));
+
+        // done callback
+        done();
+      };
+
+      // put task in queue
+      dadt::enqueue_task(std::move(task));
+    });
+  }
+};
+#endif
+
 // register to Device
-REGISTER_KERNEL_BUILDER(Name("DadtBroadCast").Device(DEVICE_CPU), DadtBroadCastOp);
+REGISTER_KERNEL_BUILDER(Name("DadtBroadCast").Device(DEVICE_CPU), DadtBroadCastOpCPU);
 
 #ifdef HAVE_NCCL
-REGISTER_KERNEL_BUILDER(Name("DadtBroadCast").Device(DEVICE_GPU), DadtBroadCastOp);
+REGISTER_KERNEL_BUILDER(Name("DadtBroadCast").Device(DEVICE_GPU), DadtBroadCastOpGPU);
 #endif
 
 REGISTER_OP("DadtBroadCast")

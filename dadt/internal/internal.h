@@ -48,7 +48,11 @@ void local_barrier();
 void enqueue_task(Task &&t);
 
 // put a job is async queue
-void async_job(std::function<void()> &&job);
+void enqueue_job(std::function<void()> &&job);
+
+#ifdef HAVE_NCCL
+cudaEvent_t obtain_cuda_event(const std::string &name);
+#endif
 
 // if have a midway tensor corresponding the tasktype
 std::shared_ptr<LockTensor> have_midway_tensor(TaskType, std::string);

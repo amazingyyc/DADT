@@ -46,6 +46,11 @@ private:
   // so use a thread pool to do the op
   ThreadPool async_queue_;
 
+#ifdef HAVE_NCCL
+  // create a map store the cuda event
+  std::unordered_map<std::string, cudaEvent_t> op_cuda_events_;
+#endif
+
 private:
   // initialize context
   void init_context(Config);
@@ -108,12 +113,19 @@ public:
   void enqueue_task(Task &&t);
 
   // put a task is async queue
-  void async_job(std::function<void()> &&task);
+  void enqueue_job(std::function<void()> &&task);
+
+#ifdef HAVE_NCCL
+  // the function in not thread-safe
+  cudaEvent_t obtain_cuda_event(const std::string &name);
+#endif
 
   // check if already create a midway tesnor
+  // the function in not thread-safe
   std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType
+  // the function in not thread-safe
   std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
   
   // used for background_thread_ to do the task

@@ -146,6 +146,13 @@ void Commander::clear_context() {
   task_executors_.clear();
 
 #ifdef HAVE_NCCL
+  // clean cuda event
+  for (auto &item : op_cuda_events_) {
+    CUDA_CALL(cudaEventDestroy(item.second));
+  }
+
+  op_cuda_events_.clear();
+
   // clear cuda and nccl resource
   NCCL_CALL(ncclCommDestroy(context_.nccl_comm));
   CUDA_CALL(cudaStreamDestroy(context_.cuda_stream));
@@ -350,8 +357,8 @@ void Commander::init(Config config) {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
 
   // init thread pool
-  // only use 2 thread
-  async_queue_.init(2);
+  // only one thread
+  async_queue_.init(1);
 
   // init a thread and wait finish init context
   worker_thread_ = std::thread(&Commander::worker_do_cycle, this, config);
@@ -438,11 +445,24 @@ void Commander::enqueue_task(Task &&t) {
 }
 
 // put a task is async queue
-void Commander::async_job(std::function<void()> &&task) {
+void Commander::enqueue_job(std::function<void()> &&task) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
   async_queue_.enqueue(std::move(task));
 }
+
+#ifdef HAVE_NCCL
+cudaEvent_t Commander::obtain_cuda_event(const std::string &name) {
+  if (op_cuda_events_.find(name) == op_cuda_events_.end()) {
+    cudaEvent_t event;
+    CUDA_CALL(cudaEventCreate(&event));
+
+    op_cuda_events_[name] = event;
+  }
+
+  return op_cuda_events_[name];
+}
+#endif
 
 std::shared_ptr<LockTensor> Commander::have_midway_tensor(TaskType task_type, std::string name) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
