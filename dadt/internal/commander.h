@@ -122,7 +122,7 @@ public:
 
   // check if already create a midway tesnor
   // the function in not thread-safe
-  std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name);
+  std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType
   // the function in not thread-safe

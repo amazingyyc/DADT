@@ -27,7 +27,8 @@ public:
   ncclDataType_t nccl_data_type(const Context &context, ElementType element_type);
 #endif
 
-  virtual std::shared_ptr<LockTensor> have_midway_tensor(std::string name) = 0;
+  // obtain the midway tesnor may return nullptr
+  virtual std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) = 0;
 
   // a executor may need a interim tensor to store the data and every executor may need different device tensor
   // like MPI broadcast need cpu tesnor

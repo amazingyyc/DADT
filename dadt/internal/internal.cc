@@ -68,8 +68,8 @@ cudaEvent_t obtain_cuda_event(const std::string &name) {
 }
 #endif
 
-std::shared_ptr<LockTensor> have_midway_tensor(TaskType task_type, std::string name) {
-  return commander_.have_midway_tensor(task_type, name);
+std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name) {
+  return commander_.obtain_midway_tensor(task_type, name);
 }
 
 // get a interim tensor by TaskType

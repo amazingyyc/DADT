@@ -12,7 +12,7 @@ NCCLBroadCastExecutor::~NCCLBroadCastExecutor() {
   CUDA_CALL(cudaEventDestroy(finish_event_));
 }
 
-std::shared_ptr<LockTensor> NCCLBroadCastExecutor::have_midway_tensor(std::string name) {
+std::shared_ptr<LockTensor> NCCLBroadCastExecutor::obtain_midway_tensor(std::string name) {
   return std::shared_ptr<LockTensor>();
 }
 

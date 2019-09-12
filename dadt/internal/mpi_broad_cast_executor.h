@@ -12,7 +12,7 @@ public:
   MPIBroadCastExecutor();
 
   // if has already create a midway tensor
-  std::shared_ptr<LockTensor> have_midway_tensor(std::string name) override;
+  std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) override;
 
   // a executor may need a interim tensor to store the data and every executor may need different device tensor
   // like MPI broadcast need cpu tesnor

@@ -12,7 +12,7 @@ using namespace tensorflow;
 // all reduce cpu op
 class DadtAllReduceOpCPU: public AsyncOpKernel {
 public:
-  explicit DadtAllReduceOpGPU(OpKernelConstruction* context) : AsyncOpKernel(context) {
+  explicit DadtAllReduceOpCPU(OpKernelConstruction* context) : AsyncOpKernel(context) {
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -28,7 +28,7 @@ public:
 
     dadt::enqueue_job([op_name, &input, output, done] {
       // get midway tensor, all job is execute in same thread, do not need mutex
-      auto midway_tensor = dadt::have_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
+      auto midway_tensor = dadt::obtain_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
 
       if (nullptr == midway_tensor) {
         auto dims = convert_tensor_shape_to_array(input.shape());
@@ -99,7 +99,7 @@ public:
     // put in a queue to wait midway tesnsor finish
     dadt::enqueue_job([op_name, &input, output, &gpu_device, done] {
       // get midway tensor, all job is execute in same thread, do not need mutex
-      auto midway_tensor = dadt::have_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
+      auto midway_tensor = dadt::obtain_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
 
       if (nullptr == midway_tensor) {
         auto dims = convert_tensor_shape_to_array(input.shape());
@@ -127,7 +127,7 @@ public:
       }
 
       // wait memory copy finish
-      auto wait_event = dadt::wait_event(op_name);
+      auto wait_event = dadt::obtain_cuda_event(op_name);
 
       // put wait event into stream and wait event finish
       CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
@@ -144,7 +144,7 @@ public:
         midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
       };
 
-      // chang tensor status
+      // change tensor status
       midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InExecute);
 
       // put task in queue
@@ -157,7 +157,6 @@ public:
 };
 
 #endif
-
 
 // register to Device
 REGISTER_KERNEL_BUILDER(Name("DadtAllReduce").Device(DEVICE_CPU), DadtAllReduceOpCPU);

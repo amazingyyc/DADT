@@ -55,7 +55,7 @@ cudaEvent_t obtain_cuda_event(const std::string &name);
 #endif
 
 // if have a midway tensor corresponding the tasktype
-std::shared_ptr<LockTensor> have_midway_tensor(TaskType, std::string);
+std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType, std::string);
 
 // get a interim tensor by TaskType
 std::shared_ptr<LockTensor> create_midway_tensor(TaskType, std::string, std::vector<int>, ElementType);

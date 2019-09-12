@@ -149,7 +149,7 @@ class DistributedOptimizer(tf.train.Optimizer):
         for grad, var in origin_gradients:
           if grad is not None:
             if  isinstance(grad, tf.IndexedSlices):
-              raise ValueError('dadt does not support IndexedSlices')
+              grad = tf.convert_to_tensor(grad)
             
             avg_grad = all_reduce(grad)
 

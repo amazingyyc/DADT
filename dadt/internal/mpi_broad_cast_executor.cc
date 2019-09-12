@@ -5,7 +5,7 @@ namespace dadt {
 MPIBroadCastExecutor::MPIBroadCastExecutor() {
 }
 
-std::shared_ptr<LockTensor> MPIBroadCastExecutor::have_midway_tensor(std::string name) {
+std::shared_ptr<LockTensor> MPIBroadCastExecutor::obtain_midway_tensor(std::string name) {
   return std::shared_ptr<LockTensor>();
 }
 

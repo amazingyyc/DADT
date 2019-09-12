@@ -464,10 +464,10 @@ cudaEvent_t Commander::obtain_cuda_event(const std::string &name) {
 }
 #endif
 
-std::shared_ptr<LockTensor> Commander::have_midway_tensor(TaskType task_type, std::string name) {
+std::shared_ptr<LockTensor> Commander::obtain_midway_tensor(TaskType task_type, std::string name) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-  return task_executors_[task_type]->have_midway_tensor(name);
+  return task_executors_[task_type]->obtain_midway_tensor(name);
 }
 
 // get a interim tensor by TaskType

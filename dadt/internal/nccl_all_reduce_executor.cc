@@ -17,7 +17,7 @@ NCCLAllReduceExecutor::~NCCLAllReduceExecutor() {
   CUDA_CALL(cudaEventDestroy(finish_event_));
 }
 
-std::shared_ptr<LockTensor> NCCLAllReduceExecutor::have_midway_tensor(std::string name) {
+std::shared_ptr<LockTensor> NCCLAllReduceExecutor::obtain_midway_tensor(std::string name) {
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
   }

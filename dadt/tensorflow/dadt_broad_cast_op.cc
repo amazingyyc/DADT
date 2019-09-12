@@ -97,7 +97,7 @@ public:
       }
 
       // wait copy finish
-      auto wait_event = dadt::wait_event(op_name);
+      auto wait_event = dadt::obtain_cuda_event(op_name);
 
       // put wait event into stream and wait event finish
       CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
