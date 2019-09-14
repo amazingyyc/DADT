@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <unordered_map>
+#include <mutex>
 
 #include <cuda_runtime.h>
 #include <nccl.h>

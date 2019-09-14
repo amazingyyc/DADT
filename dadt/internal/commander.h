@@ -49,7 +49,7 @@ private:
 #ifdef HAVE_NCCL
   // every thread has a unique cuda event
   std::mutex op_cuda_event_mutex_;
-  std::unordered_map<int, cudaEvent_t> op_cuda_events_;
+  std::unordered_map<std::thread::id, cudaEvent_t> op_cuda_events_;
 #endif
 
 private:

@@ -95,7 +95,7 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
 
         offset += tasks[i].tensor->num_bytes();
 
-        count += tasks[i].tensor.size();
+        count += tasks[i].tensor->size();
       }
 
       recvbuf = buffer_.ptr();
