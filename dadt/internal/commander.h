@@ -47,8 +47,9 @@ private:
   ThreadPool async_queue_;
 
 #ifdef HAVE_NCCL
-  // create a map store the cuda event
-  std::unordered_map<std::string, cudaEvent_t> op_cuda_events_;
+  // every thread has a unique cuda event
+  std::mutex op_cuda_event_mutex_;
+  std::unordered_map<int, cudaEvent_t> op_cuda_events_;
 #endif
 
 private:
@@ -116,8 +117,7 @@ public:
   void enqueue_job(std::function<void()> &&task);
 
 #ifdef HAVE_NCCL
-  // the function in not thread-safe
-  cudaEvent_t obtain_cuda_event(const std::string &name);
+  cudaEvent_t obtain_cuda_event();
 #endif
 
   // check if already create a midway tesnor

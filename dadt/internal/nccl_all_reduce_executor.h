@@ -15,6 +15,9 @@ namespace dadt {
 
 class NCCLAllReduceExecutor: public ITaskExecutor {
 private:
+  // tensor_pool_ will used in multi-thread
+  std::mutex pool_mutex_;
+
   // nccl all reduce will resuse the midway tesnor
   std::unordered_map<std::string, std::shared_ptr<LockTensor>> tensor_pool_;
 
@@ -29,7 +32,8 @@ private:
 
 public:
   // gpu_device_id: gpu device
-  NCCLAllReduceExecutor(int gpu_device_id);
+  // buffer_size: buffer size
+  NCCLAllReduceExecutor(int gpu_device_id, size_t buffer_size = 67108864);
 
   ~NCCLAllReduceExecutor();
 

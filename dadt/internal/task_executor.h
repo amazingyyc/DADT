@@ -15,6 +15,14 @@
 
 namespace dadt {
 
+// a task vector will split to MergeUnit by buffer size
+// begin and end is the index of vector
+// begin + 1 == end: means a task tensor's size is bigger than buffer size, will not copy to buffer and reuse the tensor buffer
+struct MergeUnit {
+  size_t begin;
+  size_t end;
+};
+
 class ITaskExecutor {
 public:
 
@@ -26,6 +34,9 @@ public:
 #ifdef HAVE_NCCL
   ncclDataType_t nccl_data_type(const Context &context, ElementType element_type);
 #endif
+
+  // split tasks to MergeUnit
+  std::vector<MergeUnit> split_tasks(const std::vector<Task> &tasks, size_t buffer_size);
 
   // obtain the midway tesnor may return nullptr
   virtual std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) = 0;

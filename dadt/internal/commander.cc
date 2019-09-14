@@ -126,10 +126,11 @@ void Commander::init_context(Config config) {
   }
 
   if (0 == config.all_reduce_executor_type) {
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
+    task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(config.all_reduce_buffer_size);
   } else if (1 == config.all_reduce_executor_type) {
 #ifdef HAVE_NCCL
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id);
+    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id,
+                                                                                     config.all_reduce_buffer_size);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
@@ -357,8 +358,7 @@ void Commander::init(Config config) {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
 
   // init thread pool
-  // only one thread
-  async_queue_.init(1);
+  async_queue_.init(4);
 
   // init a thread and wait finish init context
   worker_thread_ = std::thread(&Commander::worker_do_cycle, this, config);
@@ -452,15 +452,19 @@ void Commander::enqueue_job(std::function<void()> &&task) {
 }
 
 #ifdef HAVE_NCCL
-cudaEvent_t Commander::obtain_cuda_event(const std::string &name) {
-  if (op_cuda_events_.find(name) == op_cuda_events_.end()) {
+cudaEvent_t Commander::obtain_cuda_event() {
+  std::unique_lock<std::mutex> lock(op_cuda_event_mutex_);
+
+  auto id = std::this_thread::get_id();
+
+  if (op_cuda_events_.find(id) == op_cuda_events_.end()) {
     cudaEvent_t event;
     CUDA_CALL(cudaEventCreate(&event));
 
-    op_cuda_events_[name] = event;
+    op_cuda_events_[id] = event;
   }
 
-  return op_cuda_events_[name];
+  return op_cuda_events_[id];
 }
 #endif
 
@@ -528,11 +532,6 @@ bool Commander::worker_do_task() {
 
     // use the corresponding executor to do the task
     (*task_executors_[task_type])(context_, tasks);
-
-    // after execute the task callback
-    for (auto &t : tasks) {
-      t.done();
-    }
   }
 
   return shutdown;

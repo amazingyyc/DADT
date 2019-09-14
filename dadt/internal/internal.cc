@@ -63,8 +63,8 @@ void enqueue_job(std::function<void()> &&job) {
 }
 
 #ifdef HAVE_NCCL
-cudaEvent_t obtain_cuda_event(const std::string &name) {
-  commander_.obtain_cuda_event(name);
+cudaEvent_t obtain_cuda_event() {
+  commander_.obtain_cuda_event();
 }
 #endif
 

@@ -1,4 +1,6 @@
+#ifdef HAVE_NCCL
 #define EIGEN_USE_GPU
+#endif
 
 #include "tensorflow_utils.h"
 #include "internal.h"
@@ -26,50 +28,48 @@ public:
     // get name
     auto op_name = name();
 
-    dadt::enqueue_job([op_name, &input, output, done] {
-      // get midway tensor, all job is execute in same thread, do not need mutex
-      auto midway_tensor = dadt::obtain_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
+    // get midway tensor
+    auto midway_tensor = dadt::obtain_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
 
-      if (nullptr == midway_tensor) {
-        auto dims = convert_tensor_shape_to_array(input.shape());
-        auto element_type = convert_dtype_to_element_type(input.dtype());
+    if (nullptr == midway_tensor) {
+      auto dims = convert_tensor_shape_to_array(input.shape());
+      auto element_type = convert_dtype_to_element_type(input.dtype());
 
-        midway_tensor = dadt::create_midway_tensor(dadt::DADTAllReduceTaskType, op_name, dims, element_type);
-      }
+      midway_tensor = dadt::create_midway_tensor(dadt::DADTAllReduceTaskType, op_name, dims, element_type);
+    }
 
-      // CPU op only support CPU tensor 
-      ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
-      "CPU op must use CPU tensor, so please set all reduce executor to be MPI");
+    // CPU op only support CPU tensor 
+    ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
+    "CPU op must use CPU tensor, so please set all reduce executor to be MPI");
 
-      // wait midway tensor finish task
-      midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
+    // wait midway tensor finish task
+    midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
 
-      // copy to output
-      std::memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+    // copy to output
+    std::memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
 
-      // copy input to tensor
-      std::memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+    // copy input to tensor
+    std::memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
 
-      // for now the midway result has been copy to output and input has copy in midway tesnor
-      // when copy finish create a task put into task queue to do all resuce
-      dadt::Task task;
-      task.name = op_name;
-      task.tensor = midway_tensor;
-      task.task_type = dadt::DADTAllReduceTaskType;
+    // for now the midway result has been copy to output and input has copy in midway tesnor
+    // when copy finish create a task put into task queue to do all resuce
+    dadt::Task task;
+    task.name = op_name;
+    task.tensor = midway_tensor;
+    task.task_type = dadt::DADTAllReduceTaskType;
 
-      task.done = [midway_tensor] {
-        midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
-      };
+    task.done = [midway_tensor] {
+      midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
+    };
 
-      // chang tensor status
-      midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InExecute);
+    // chang tensor status
+    midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InExecute);
 
-      // put task in queue
-      dadt::enqueue_task(std::move(task));
+    // put task in queue
+    dadt::enqueue_task(std::move(task));
 
-      // tell tensorflow have finish the op
-      done();
-    });
+    // tell tensorflow have finish the op
+    done();
   }
 };
 
@@ -96,63 +96,59 @@ public:
     // get gpudevice
     const Eigen::GpuDevice& gpu_device = context->eigen_device<Eigen::GpuDevice>();
 
-    // put in a queue to wait midway tesnsor finish
-    dadt::enqueue_job([op_name, &input, output, &gpu_device, done] {
-      // get midway tensor, all job is execute in same thread, do not need mutex
-      auto midway_tensor = dadt::obtain_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
+    auto midway_tensor = dadt::obtain_midway_tensor(dadt::DADTAllReduceTaskType, op_name);
 
-      if (nullptr == midway_tensor) {
-        auto dims = convert_tensor_shape_to_array(input.shape());
-        auto element_type = convert_dtype_to_element_type(input.dtype());
+    if (nullptr == midway_tensor) {
+      auto dims = convert_tensor_shape_to_array(input.shape());
+      auto element_type = convert_dtype_to_element_type(input.dtype());
 
-        midway_tensor = dadt::create_midway_tensor(dadt::DADTAllReduceTaskType, op_name, dims, element_type);
-      }
+      midway_tensor = dadt::create_midway_tensor(dadt::DADTAllReduceTaskType, op_name, dims, element_type);
+    }
 
-      // wait midway tensor finish task
-      midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
+    // wait midway tensor finish task
+    midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
 
-      // check the midway tensor type
-      if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
-        // copy memory from cpu tensor to output
-        gpu_device.memcpyHostToDevice((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+    // check the midway tensor type
+    if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
+      // copy memory from cpu tensor to output
+      gpu_device.memcpyHostToDevice((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
 
-        // copy input to cpu tensor
-        gpu_device.memcpyDeviceToHost(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
-      } else {
-        // copy from gpu to gpu
-        gpu_device.memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+      // copy input to cpu tensor
+      gpu_device.memcpyDeviceToHost(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+    } else {
+      // copy from gpu to gpu
+      gpu_device.memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
 
-        // copy input to gpu tensor
-        gpu_device.memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
-      }
+      // copy input to gpu tensor
+      gpu_device.memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+    }
 
-      // wait memory copy finish
-      auto wait_event = dadt::obtain_cuda_event(op_name);
+    // wait memory copy finish
+    auto wait_event = dadt::obtain_cuda_event(op_name);
 
-      // put wait event into stream and wait event finish
-      CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
-      CUDA_CALL(cudaEventSynchronize(wait_event));
+    // put wait event into stream and wait event finish
+    CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
+    CUDA_CALL(cudaEventSynchronize(wait_event));
 
-      // for now the midway result has been copy to output and input has copy in midway tesnor
-      // when copy finish create a task put into task queue to do all reduce
-      dadt::Task task;
-      task.name = op_name;
-      task.tensor = midway_tensor;
-      task.task_type = dadt::DADTAllReduceTaskType;
+    // for now the midway result has been copy to output and input has copy in midway tesnor
+    // when copy finish create a task put into task queue to do all reduce
+    dadt::Task task;
+    task.name = op_name;
+    task.tensor = midway_tensor;
+    task.task_type = dadt::DADTAllReduceTaskType;
 
-      task.done = [midway_tensor] {
-        midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
-      };
+    task.done = [midway_tensor] {
+      midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
+    };
 
-      // change tensor status
-      midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InExecute);
+    // change tensor status
+    midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InExecute);
 
-      // put task in queue
-      dadt::enqueue_task(std::move(task));
+    // put task in queue
+    dadt::enqueue_task(std::move(task));
 
-      // tell tensorflow have finish the op
-      done();
-    });
+    // tell tensorflow have finish the op
+    done();
   }
 };
 

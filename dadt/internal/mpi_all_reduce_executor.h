@@ -12,13 +12,16 @@ namespace dadt {
 
 class MPIAllReduceExecutor: public ITaskExecutor {
 private:
+  // tensor_pool_ will used in multi-thread
+  std::mutex pool_mutex_;
+
   // allreduce will reuse the tensor, so use a map to store it
   std::unordered_map<std::string, std::shared_ptr<LockTensor>> tensor_pool_;
 
   MemoryBuffer buffer_;
 
 public:
-  MPIAllReduceExecutor();
+  MPIAllReduceExecutor(size_t buffer_size = 67108864);
 
   // whether already create a midway tensor
   std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) override;

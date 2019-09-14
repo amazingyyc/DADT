@@ -3,18 +3,30 @@
 
 namespace dadt {
 
-MPIAllReduceExecutor::MPIAllReduceExecutor(): buffer_(get_cpu_device()) {
+MPIAllReduceExecutor::MPIAllReduceExecutor(size_t buffer_size): buffer_(get_cpu_device()) {
+  if (buffer_size <= 0) {
+    buffer_size = 64 * 1024 * 1024;
+  }
+  
+  buffer_.reserve(buffer_size);
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::string name) {
+  // add lock
+  std::unique_lock<std::mutex> lock(pool_mutex_);
+
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
   }
+
+  lock.unlock();
 
   return std::shared_ptr<LockTensor>();
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+  std::unique_lock<std::mutex> lock(pool_mutex_);
+
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it
     auto tensor = tensor_pool_[name];
@@ -51,48 +63,48 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
                   "mpi all reduce only support cpu tensor, element type must be float/double")
   }
 
-  void *recvbuf = nullptr;
-  int count = 0;
+  auto merge_units = split_tasks(tasks, buffer_.size());
 
-  if (tasks.size() > 1) {
-    size_t memory_size = 0;
+  for (auto &unit : merge_units) {
+    void *recvbuf = nullptr;
+    int count = 0;
 
-    for (auto &task : tasks) {
-      count += task.tensor->size();
-      memory_size += task.tensor->num_bytes();
+    if (unit.begin + 1 == unit.end) {
+      recvbuf = tasks[unit.begin].tensor->ptr();
+      count = tasks[unit.begin].tensor->size();
+    } else {
+      // copy tensor to buffer
+      size_t offset = 0;
+
+      for (size_t i = unit.begin; i < unit.end; ++i) {
+        std::memcpy(buffer_.ptr(offset), tasks[i].tensor->ptr(), tasks[i].tensor->num_bytes());
+
+        offset += tasks[i].tensor->num_bytes();
+        count += tasks[i].tensor->size();
+      }
+
+      recvbuf = buffer_.ptr();
     }
 
-    // reserve enough memory
-    buffer_.reserve(memory_size);
+    auto mpi_dtype = mpi_data_type(context, tasks[0].tensor->element_type());
 
-    // copy tensor to buffer
-    size_t offset = 0;
+    // do all reduce
+    MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recvbuf, count, mpi_dtype, MPI_SUM, context.world_comm));
 
-    for (auto &task : tasks) {
-      std::memcpy(buffer_.ptr(offset), task.tensor->ptr(), task.tensor->num_bytes());
+    // copy back
+    if (unit.begin + 1 != unit.end) {
+      size_t offset = 0;
 
-      offset += task.tensor->num_bytes();
+      for (size_t i = unit.begin; i < unit.end; ++i) {
+        std::memcpy(tasks[i].tensor->ptr(), buffer_.ptr(offset), tasks[i].tensor->num_bytes());
+
+        offset += tasks[i].tensor->num_bytes();
+      }
     }
 
-    recvbuf = buffer_.ptr();
-  } else {
-    recvbuf = tasks[0].tensor->ptr();
-    count   = tasks[0].tensor->size();
-  }
-
-  auto mpi_dtype = mpi_data_type(context, tasks[0].tensor->element_type());
-
-  // do all reduce
-  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recvbuf, count, mpi_dtype, MPI_SUM, context.world_comm));
-
-  // copy back to tensor
-  if (tasks.size() > 1) {
-    size_t offset = 0;
-
-    for (auto &task : tasks) {
-      std::memcpy(task.tensor->ptr(), buffer_.ptr(offset), task.tensor->num_bytes());
-      
-      offset += task.tensor->num_bytes();
+    // callback tensor
+    for (size_t i = unit.begin; i < unit.end; ++i) {
+      tasks[i].done();
     }
   }
 }

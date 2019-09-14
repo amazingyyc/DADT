@@ -24,6 +24,9 @@ struct Config {
   // 0: mpi all reduce
   // 1: nccl all reduce
   int all_reduce_executor_type;
+
+  // all reduce buffer size
+  size_t all_reduce_buffer_size;
 };
 
 // context include the MPI context

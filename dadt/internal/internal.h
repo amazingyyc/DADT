@@ -51,7 +51,7 @@ void enqueue_task(Task &&t);
 void enqueue_job(std::function<void()> &&job);
 
 #ifdef HAVE_NCCL
-cudaEvent_t obtain_cuda_event(const std::string &name);
+cudaEvent_t obtain_cuda_event();
 #endif
 
 // if have a midway tensor corresponding the tasktype

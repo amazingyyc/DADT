@@ -21,7 +21,8 @@ all_reduce_executor_type:what kind all reduce executor should be used
 class Config(ctypes.Structure):
   _fields_ = [("cycle_duration_ms", ctypes.c_int), 
               ("broad_cast_executor_type", ctypes.c_int),
-              ("all_reduce_executor_type", ctypes.c_int)]
+              ("all_reduce_executor_type", ctypes.c_int),
+              ("all_reduce_buffer_size", ctypes.c_size_t)]
 
 if 'Windows' == platform.system():
   dadt_library_suffix = '.dll'
@@ -42,10 +43,11 @@ dadt_native_module = ctypes.CDLL(dadt_library_path, mode=ctypes.RTLD_GLOBAL)
 dadt_native_module.init.argtypes = (Config, )
 
 '''init dadt'''
-def init(cycle_duration_ms=5, broad_cast_executor_type=0, all_reduce_executor_type=0):
+def init(cycle_duration_ms=5, broad_cast_executor_type=0, all_reduce_executor_type=0, all_reduce_buffer_size=67108864):
   dadt_native_module.init(Config(cycle_duration_ms=cycle_duration_ms,
                                  broad_cast_executor_type=broad_cast_executor_type,
-                                 all_reduce_executor_type=all_reduce_executor_type))
+                                 all_reduce_executor_type=all_reduce_executor_type,
+                                 all_reduce_buffer_size=all_reduce_buffer_size))
 
 '''shutdown whole system'''
 def shutdown():

@@ -45,6 +45,11 @@ void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector
   // wait cuda stream finish
   CUDA_CALL(cudaEventRecord(finish_event_, context.cuda_stream));
   CUDA_CALL(cudaEventSynchronize(finish_event_));
+
+  // callback tensor
+  for (auto &task : tasks) {
+    task.done();
+  }
 }
 
 }
