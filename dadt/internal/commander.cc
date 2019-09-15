@@ -114,10 +114,10 @@ void Commander::init_context(Config config) {
 
   // create broadcast executor
   if (0 == config.broad_cast_executor_type) {
-    task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
+    task_executors_[kDADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
   } else if (1 == config.broad_cast_executor_type) {
 #ifdef HAVE_NCCL
-    task_executors_[DADTBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(context_.gpu_device_id);
+    task_executors_[kDADTBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(context_.gpu_device_id);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
@@ -126,16 +126,31 @@ void Commander::init_context(Config config) {
   }
 
   if (0 == config.all_reduce_executor_type) {
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(config.all_reduce_buffer_size);
+    task_executors_[kDADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(config.all_reduce_buffer_size);
   } else if (1 == config.all_reduce_executor_type) {
 #ifdef HAVE_NCCL
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id,
+    task_executors_[kDADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id,
                                                                                      config.all_reduce_buffer_size);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
   } else {
     RUNTIME_ERROR("all_reduce_executor_type error, please set to be 0(MPI) or 1(NCCL)");
+  }
+
+  // whether enable timeline
+  // only rank 0 will writer timeline
+  if (0 == context_.world_rank && nullptr != config.timeline_path) {
+    // enable timeline
+    context_.enable_timeline = true;
+
+    // file path
+    std::string path(config.timeline_path);
+
+    // create a timeline
+    timeline_ = std::make_shared<TimeLine>(path);
+  } else {
+    context_.enable_timeline = false;
   }
 
   // set the flag
@@ -293,6 +308,11 @@ bool Commander::check_execute_task(int rank, TaskType task_type, std::string nam
 
 // exchange the tasks with each process
 std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_tasks(std::vector<Task> &tasks) {
+  // timeline kStayInTaskPoolEvent
+  if (context_.enable_timeline.load()) {
+    timeline_->begin(tasks, kStayInTaskPoolEvent);
+  }
+
   // step1: put all task in task_pool
   for (auto &t : tasks) {
     auto key = std::make_tuple(t.task_type, t.name);
@@ -343,6 +363,11 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
 
           // remove it from pool
           task_pool_.erase(key);
+
+          // out of task pool
+          if (context_.enable_timeline.load()) {
+            timeline_->end(name, kStayInTaskPoolEvent);
+          }
         }
       }
     }
@@ -376,7 +401,7 @@ void Commander::shutdown() {
   // stop worker thread
   // put a shutdown task in queue
   Task shutdown_task;
-  shutdown_task.task_type = DADTShutDownTaskType;
+  shutdown_task.task_type = kDADTShutDownTaskType;
   shutdown_task.name      = DADT_SHUTDOWN_TASK_NAME;
 
   // shutdown system
@@ -442,6 +467,11 @@ void Commander::enqueue_task(Task &&t) {
   auto ret = task_queue_.enqueue(t);
 
   ARGUMENT_CHECK(ret, "enqueue task to queue get error!");
+
+  // timeline
+  if (context_.enable_timeline.load()) {
+    timeline_->begin(t.name, kStayInTaskQueueEvent);
+  }
 }
 
 // put a task is async queue
@@ -449,6 +479,19 @@ void Commander::enqueue_job(std::function<void()> &&task) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
   async_queue_.enqueue(std::move(task));
+}
+
+// timeline event
+void Commander::begin_timeline_event(const std::string &name, const std::string &event) {
+  if (context_.enable_timeline.load()) {
+    timeline_->begin(name, event);
+  }
+}
+
+void Commander::end_timeline_event(const std::string &name, const std::string &event) {
+  if (context_.enable_timeline.load()) {
+    timeline_->end(name, event);
+  }
 }
 
 #ifdef HAVE_NCCL
@@ -498,15 +541,20 @@ bool Commander::worker_do_task() {
     }
   }
 
+  // timeline out of queue
+  if (context_.enable_timeline.load()) {
+    timeline_->end(tasks, kStayInTaskQueueEvent);
+  }
+
   // step2, exchange with other node
   auto execute_tasks = exchange_execute_tasks(tasks);
 
   // check whether shutdown
   bool shutdown = false;
 
-  if (execute_tasks.find(DADTShutDownTaskType) != execute_tasks.end()) {
+  if (execute_tasks.find(kDADTShutDownTaskType) != execute_tasks.end()) {
     shutdown = true;
-    execute_tasks.erase(DADTShutDownTaskType);
+    execute_tasks.erase(kDADTShutDownTaskType);
   }
 
   // for now every process have some task that will be executed
@@ -531,7 +579,7 @@ bool Commander::worker_do_task() {
     });
 
     // use the corresponding executor to do the task
-    (*task_executors_[task_type])(context_, tasks);
+    (*task_executors_[task_type])(context_, tasks, timeline_);
   }
 
   return shutdown;

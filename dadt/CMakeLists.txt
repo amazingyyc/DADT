@@ -20,6 +20,7 @@ set(DADT_HEADER_FILES
   internal/tensor.h
   internal/thread_pool.h
   internal/internal.h
+  internal/timeline.h
 
   tensorflow/tensorflow_utils.h
 )
@@ -38,6 +39,7 @@ set(DADT_SRC_FILES
   internal/tensor.cc
   internal/thread_pool.cc
   internal/internal.cc
+  internal/timeline.cc
 
   tensorflow/tensorflow_utils.cc
   tensorflow/dadt_broad_cast_op.cc

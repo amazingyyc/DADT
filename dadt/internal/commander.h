@@ -13,6 +13,7 @@
 #include "context.h"
 #include "task_executor.h"
 #include "thread_pool.h"
+#include "timeline.h"
 
 namespace dadt {
 
@@ -45,6 +46,9 @@ private:
   // we will use async op to do the braodcast and allreduce
   // so use a thread pool to do the op
   ThreadPool async_queue_;
+
+  // timeline
+  std::shared_ptr<TimeLine> timeline_;
 
 #ifdef HAVE_NCCL
   // every thread has a unique cuda event
@@ -115,6 +119,11 @@ public:
 
   // put a task is async queue
   void enqueue_job(std::function<void()> &&task);
+
+  // timeline evet
+  void begin_timeline_event(const std::string &name, const std::string &event);
+
+  void end_timeline_event(const std::string &name, const std::string &event);
 
 #ifdef HAVE_NCCL
   cudaEvent_t obtain_cuda_event();

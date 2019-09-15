@@ -60,7 +60,7 @@ std::shared_ptr<LockTensor> NCCLAllReduceExecutor::create_midway_tensor(std::str
   return tensor;
 }
 
-void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
+void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
   auto element_type = tasks[0].tensor->element_type();
 
   ARGUMENT_CHECK(element_type.is<half>() || element_type.is<float>() || element_type.is<double>(), "NCCL all reduce only support half/float/double");
@@ -69,6 +69,11 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
   for (auto &task : tasks) {
     ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "NCCL all reduce need tensor is GPU");
     ARGUMENT_CHECK(element_type == task.tensor->element_type(), "NCCL all reduce only support half/float/double");
+  }
+
+  // begin allreduce timeline
+  if (context.enable_timeline.load()) {
+    timeline->begin(tasks, kDoAllReduceEvent);
   }
 
   // iterator all task collect it by the buffer size
@@ -124,10 +129,17 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
     // wait cuda stream finish
     CUDA_CALL(cudaEventRecord(finish_event_, context.cuda_stream));
     CUDA_CALL(cudaEventSynchronize(finish_event_));
-    
+
     // callback tensor
     for (size_t i = unit.begin; i < unit.end; ++i) {
       tasks[i].done();
+    }
+
+    // timeline
+    if (context.enable_timeline.load()) {
+      for (size_t i = unit.begin; i < unit.end; ++i) {
+        timeline->end(tasks[i].name, kDoAllReduceEvent);
+      }
     }
   }
 }

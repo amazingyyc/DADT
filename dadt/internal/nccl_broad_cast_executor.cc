@@ -29,7 +29,12 @@ std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::str
   return tensor;
 }
 
-void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
+void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
+  // begin broad cast timeline
+  if (context.enable_timeline.load()) {
+    timeline->begin(tasks, kDoBroadCastEvent);
+  }
+
   // for broad cast we will broad one by one
   for (auto &task : tasks) {
     ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "NCCLBroadCastExecutor only support GPU tensor");
@@ -49,6 +54,11 @@ void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector
   // callback tensor
   for (auto &task : tasks) {
     task.done();
+  }
+
+  // end broad cast timeline
+  if (context.enable_timeline.load()) {
+    timeline->end(tasks, kDoBroadCastEvent);
   }
 }
 

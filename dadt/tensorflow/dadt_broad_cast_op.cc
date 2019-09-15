@@ -32,20 +32,26 @@ public:
     auto element_type = convert_dtype_to_element_type(input.dtype());
 
     // broad cast tensor not need reuse
-    auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, op_name, dims, element_type);
+    auto midway_tensor = dadt::create_midway_tensor(dadt::kDADTBroadCastTaskType, op_name, dims, element_type);
 
     // CPU op only support CPU tensor 
     ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
     "CPU op must use CPU tensor, so please set broad cast executor to be MPI");
 
+    // kCopyToMidWayEvent begin
+    dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);
+
     // copy input to midway tensor
     std::memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+
+    // kCopyToMidWayEvent begin
+    dadt::end_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
     // create a task
     dadt::Task task;
     task.name = op_name;
     task.tensor = midway_tensor;
-    task.task_type = dadt::DADTBroadCastTaskType;
+    task.task_type = dadt::kDADTBroadCastTaskType;
 
     task.done = [output, midway_tensor, done] {
       // after broadcast should copy data to output
@@ -83,7 +89,10 @@ public:
     auto dims = convert_tensor_shape_to_array(input.shape());
     auto element_type = convert_dtype_to_element_type(input.dtype());
 
-    auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, op_name, dims, element_type);
+    auto midway_tensor = dadt::create_midway_tensor(dadt::kDADTBroadCastTaskType, op_name, dims, element_type);
+    
+    // kCopyToMidWayEvent begin
+    dadt::begin_timeline_event(op_name, kCopyToMidWayEvent);
 
     // copy input to tensor
     if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
@@ -101,11 +110,14 @@ public:
     CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
     CUDA_CALL(cudaEventSynchronize(wait_event));
 
+    // kCopyToMidWayEvent begin
+    dadt::end_timeline_event(op_name, kCopyToMidWayEvent);
+
     // create task
     dadt::Task task;
     task.name = op_name;
     task.tensor = midway_tensor;
-    task.task_type = dadt::DADTBroadCastTaskType;
+    task.task_type = dadt::kDADTBroadCastTaskType;
 
     task.done = [output, midway_tensor, &gpu_device, wait_event, done] {
       // after broadcast should copy data to output

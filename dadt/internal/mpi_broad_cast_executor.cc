@@ -27,7 +27,12 @@ std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::stri
   return tensor;
 }
 
-void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
+void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
+  // begin broad cast timeline
+  if (context.enable_timeline.load()) {
+    timeline->begin(tasks, kDoBroadCastEvent);
+  }
+
   // for broad cast we will broad one by one
   for (auto &task : tasks) {
     ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type(), "MPIBroadCastExecutor only support CPU tensor");
@@ -43,6 +48,11 @@ void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<
 
   for (auto &task : tasks) {
     task.done();
+  }
+
+  // end broad cast timeline
+  if (context.enable_timeline.load()) {
+    timeline->end(tasks, kDoBroadCastEvent);
   }
 }
 

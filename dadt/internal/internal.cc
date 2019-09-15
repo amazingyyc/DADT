@@ -62,6 +62,15 @@ void enqueue_job(std::function<void()> &&job) {
   commander_.enqueue_job(std::move(job));
 }
 
+// timeline evet
+void begin_timeline_event(const std::string &name, const std::string &event) {
+  commander_.begin_timeline_event(name, event);
+}
+
+void end_timeline_event(const std::string &name, const std::string &event) {
+  commander_.end_timeline_event(name, event);
+}
+
 #ifdef HAVE_NCCL
 cudaEvent_t obtain_cuda_event() {
   commander_.obtain_cuda_event();

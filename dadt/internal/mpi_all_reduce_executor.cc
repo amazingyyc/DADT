@@ -51,7 +51,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::stri
   return tensor;
 }
 
-void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
+void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
   // mpi all reduce only support cpu tensor and float/double
   auto element_type = tasks[0].tensor->element_type();
 
@@ -61,6 +61,11 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() && 
                   element_type == task.tensor->element_type(), 
                   "mpi all reduce only support cpu tensor, element type must be float/double")
+  }
+
+  // begin allreduce timeline
+  if (context.enable_timeline.load()) {
+    timeline->begin(tasks, kDoAllReduceEvent);
   }
 
   auto merge_units = split_tasks(tasks, buffer_.size());
@@ -105,6 +110,13 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     // callback tensor
     for (size_t i = unit.begin; i < unit.end; ++i) {
       tasks[i].done();
+    }
+
+    // timeline
+    if (context.enable_timeline.load()) {
+      for (size_t i = unit.begin; i < unit.end; ++i) {
+        timeline->end(tasks[i].name, kDoAllReduceEvent);
+      }
     }
   }
 }

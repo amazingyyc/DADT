@@ -22,7 +22,8 @@ class Config(ctypes.Structure):
   _fields_ = [("cycle_duration_ms", ctypes.c_int), 
               ("broad_cast_executor_type", ctypes.c_int),
               ("all_reduce_executor_type", ctypes.c_int),
-              ("all_reduce_buffer_size", ctypes.c_size_t)]
+              ("all_reduce_buffer_size", ctypes.c_size_t),
+              ("timeline_path", ctypes.c_char_p)]
 
 if 'Windows' == platform.system():
   dadt_library_suffix = '.dll'
@@ -43,11 +44,25 @@ dadt_native_module = ctypes.CDLL(dadt_library_path, mode=ctypes.RTLD_GLOBAL)
 dadt_native_module.init.argtypes = (Config, )
 
 '''init dadt'''
-def init(cycle_duration_ms=5, broad_cast_executor_type=0, all_reduce_executor_type=0, all_reduce_buffer_size=67108864):
-  dadt_native_module.init(Config(cycle_duration_ms=cycle_duration_ms,
-                                 broad_cast_executor_type=broad_cast_executor_type,
-                                 all_reduce_executor_type=all_reduce_executor_type,
-                                 all_reduce_buffer_size=all_reduce_buffer_size))
+def init(cycle_duration_ms=5, 
+         broad_cast_executor_type=0, 
+         all_reduce_executor_type=0, 
+         all_reduce_buffer_size=67108864,
+         timeline_path=None):
+  if timeline_path is None or not isinstance(timeline_path, str) or '' == timeline_path:
+    config = Config(cycle_duration_ms=cycle_duration_ms,
+                    broad_cast_executor_type=broad_cast_executor_type,
+                    all_reduce_executor_type=all_reduce_executor_type,
+                    all_reduce_buffer_size=all_reduce_buffer_size,
+                    timeline_path=None)
+  else:
+    config = Config(cycle_duration_ms=cycle_duration_ms,
+                    broad_cast_executor_type=broad_cast_executor_type,
+                    all_reduce_executor_type=all_reduce_executor_type,
+                    all_reduce_buffer_size=all_reduce_buffer_size,
+                    timeline_path=ctypes.c_char_p(timeline_path.encode('utf-8')))
+
+  dadt_native_module.init(config)
 
 '''shutdown whole system'''
 def shutdown():
@@ -150,7 +165,7 @@ class DistributedOptimizer(tf.train.Optimizer):
       with tf.name_scope(self._name + 'AllReduce'):
         for grad, var in origin_gradients:
           if grad is not None:
-            if  isinstance(grad, tf.IndexedSlices):
+            if isinstance(grad, tf.IndexedSlices):
               grad = tf.convert_to_tensor(grad)
             
             avg_grad = all_reduce(grad)

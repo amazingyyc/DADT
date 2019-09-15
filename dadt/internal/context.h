@@ -27,6 +27,9 @@ struct Config {
 
   // all reduce buffer size
   size_t all_reduce_buffer_size;
+
+  // timeline file path
+  const char *timeline_path;
 };
 
 // context include the MPI context
@@ -79,6 +82,9 @@ struct Context {
 
   // thread cycle duration microsecond
   int64_t cycle_duration_us;
+
+  // whether enable timeline
+  std::atomic<bool> enable_timeline;
 };
 
 }
