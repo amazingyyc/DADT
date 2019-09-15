@@ -21,6 +21,9 @@ const std::string kStayInTaskPoolEvent  = "StayInTaskPool";
 const std::string kDoAllReduceEvent     = "DoAllReduce";
 const std::string kDoBroadCastEvent     = "DoBroadCast";
 
+// s special event indicate in training but not cccurate
+const std::string kInTrainingEvent = "InTraining";
+
 // a simple time line 
 // use chrome://tracing to open it
 class TimeLine {

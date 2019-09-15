@@ -363,13 +363,15 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
 
           // remove it from pool
           task_pool_.erase(key);
-
-          // out of task pool
-          if (context_.enable_timeline.load()) {
-            timeline_->end(name, kStayInTaskPoolEvent);
-          }
         }
       }
+    }
+  }
+
+  // timeline
+  if (context_.enable_timeline.load()) {
+    for (auto &item : will_execute_tasks) {
+      timeline_->end(item.second, kStayInTaskPoolEvent);
     }
   }
 
@@ -580,6 +582,10 @@ bool Commander::worker_do_task() {
 
     // use the corresponding executor to do the task
     (*task_executors_[task_type])(context_, tasks, timeline_);
+  }
+
+  if (shutdown) {
+    ARGUMENT_CHECK(task_register_.empty() && task_pool_.empty(), "get shutdown signal, but there still left task.");
   }
 
   return shutdown;
