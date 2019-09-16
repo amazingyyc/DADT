@@ -130,7 +130,7 @@ void Commander::init_context(Config config) {
   } else if (1 == config.all_reduce_executor_type) {
 #ifdef HAVE_NCCL
     task_executors_[kDADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id,
-                                                                                     config.all_reduce_buffer_size);
+                                                                                      config.all_reduce_buffer_size);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
@@ -139,7 +139,7 @@ void Commander::init_context(Config config) {
   }
 
   // whether enable timeline
-  // only rank 0 will writer timeline
+  // only rank 0 will write timeline
   if (0 == context_.world_rank && nullptr != config.timeline_path) {
     // enable timeline
     context_.enable_timeline = true;
@@ -384,9 +384,6 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
 void Commander::init(Config config) {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
 
-  // init thread pool
-  async_queue_.init(4);
-
   // init a thread and wait finish init context
   worker_thread_ = std::thread(&Commander::worker_do_cycle, this, config);
 
@@ -396,9 +393,6 @@ void Commander::init(Config config) {
 // shutdown background thread
 void Commander::shutdown() {
   ARGUMENT_CHECK(initialized_, "the commander has not initialized");
-
-  // stop async queue
-  async_queue_.stop();
 
   // stop worker thread
   // put a shutdown task in queue
@@ -415,7 +409,7 @@ void Commander::shutdown() {
   initialized_ = false;
 }
 
-// if the commander have been initialized
+// whether the commander have been initialized
 bool Commander::initialized() {
   return initialized_.load();
 }
@@ -474,13 +468,6 @@ void Commander::enqueue_task(Task &&t) {
   if (context_.enable_timeline.load()) {
     timeline_->begin(t.name, kStayInTaskQueueEvent);
   }
-}
-
-// put a task is async queue
-void Commander::enqueue_job(std::function<void()> &&task) {
-  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
-
-  async_queue_.enqueue(std::move(task));
 }
 
 // timeline event

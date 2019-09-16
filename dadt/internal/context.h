@@ -1,6 +1,7 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
+#include <atomic>
 #include <mpi.h>
 
 #ifdef HAVE_NCCL
@@ -32,8 +33,7 @@ struct Config {
   const char *timeline_path;
 };
 
-// context include the MPI context
-// and some config
+// context include the MPI nccl context
 struct Context {
   // the MPI word communicator include all process
   // the process size

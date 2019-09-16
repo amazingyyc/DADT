@@ -57,11 +57,6 @@ void enqueue_task(Task &&t) {
   commander_.enqueue_task(std::move(t));
 }
 
-// put a task is async queue
-void enqueue_job(std::function<void()> &&job) {
-  commander_.enqueue_job(std::move(job));
-}
-
 // timeline evet
 void begin_timeline_event(const std::string &name, const std::string &event) {
   commander_.begin_timeline_event(name, event);

@@ -64,7 +64,7 @@ public:
     dadt::end_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
     // for now the midway result has been copy to output and input has copy in midway tesnor
-    // when copy finish create a task put into task queue to do all resuce
+    // when copy finish create a task put into task queue to do all reduce
     dadt::Task task;
     task.name = op_name;
     task.tensor = midway_tensor;

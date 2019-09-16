@@ -24,7 +24,7 @@ std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::str
 
   auto storage = TensorStorage::create(device, shape.size() * element_type.byte_width());
 
-  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::InFill);
+  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::InFetch);
 
   return tensor;
 }

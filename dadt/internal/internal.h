@@ -48,9 +48,6 @@ void local_barrier();
 // put a task in queue
 void enqueue_task(Task &&t);
 
-// put a job is async queue
-void enqueue_job(std::function<void()> &&job);
-
 // timeline event begin
 void begin_timeline_event(const std::string &name, const std::string &event);
 

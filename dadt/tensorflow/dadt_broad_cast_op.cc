@@ -110,7 +110,7 @@ public:
     CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
     CUDA_CALL(cudaEventSynchronize(wait_event));
 
-    // kCopyToMidWayEvent begin
+    // kCopyToMidWayEvent end
     dadt::end_timeline_event(op_name, kCopyToMidWayEvent);
 
     // create task

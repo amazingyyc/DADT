@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <functional>
+#include <memory>
 
 namespace dadt {
 
@@ -26,7 +27,7 @@ struct Task {
   // every tensor/op have a unique name
   std::string name;
 
-  // a tesnor used for this task
+  // a tesnor used for this task, for shutdown it is null
   std::shared_ptr<LockTensor> tensor;
 
   // when finish call this function
