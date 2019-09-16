@@ -85,7 +85,6 @@ public:
   }
 };
 
-
 #ifdef HAVE_NCCL
 
 // at here add a new op for tensorflow to broadcast the weight
@@ -118,16 +117,16 @@ public:
     }
 
     // kWaitForFetchEvent begin
-    dadt::begin_timeline_event(op_name, kWaitForFetchEvent);
+    dadt::begin_timeline_event(op_name, dadt::kWaitForFetchEvent);
 
     // wait midway tensor finish task
     midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
 
     // kWaitForFetchEvent end
-    dadt::end_timeline_event(op_name, kWaitForFetchEvent);
+    dadt::end_timeline_event(op_name, dadt::kWaitForFetchEvent);
 
     // kCopyToMidWayEvent event
-    dadt::begin_timeline_event(op_name, kCopyToMidWayEvent);
+    dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
     // check the midway tensor type
     if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
@@ -152,7 +151,7 @@ public:
     CUDA_CALL(cudaEventSynchronize(wait_event));
 
     // kCopyToMidWayEvent event
-    dadt::end_timeline_event(op_name, kCopyToMidWayEvent);
+    dadt::end_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
     // for now the midway result has been copy to output and input has copy in midway tesnor
     // when copy finish create a task put into task queue to do all reduce

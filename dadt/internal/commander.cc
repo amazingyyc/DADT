@@ -460,14 +460,14 @@ void Commander::local_barrier() {
 void Commander::enqueue_task(Task &&t) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-  auto ret = task_queue_.enqueue(t);
-
-  ARGUMENT_CHECK(ret, "enqueue task to queue get error!");
-
-  // timeline
+    // timeline
   if (context_.enable_timeline.load()) {
     timeline_->begin(t.name, kStayInTaskQueueEvent);
   }
+
+  auto ret = task_queue_.enqueue(t);
+
+  ARGUMENT_CHECK(ret, "enqueue task to queue get error!");
 }
 
 // timeline event

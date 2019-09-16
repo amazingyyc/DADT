@@ -92,7 +92,7 @@ public:
     auto midway_tensor = dadt::create_midway_tensor(dadt::kDADTBroadCastTaskType, op_name, dims, element_type);
     
     // kCopyToMidWayEvent begin
-    dadt::begin_timeline_event(op_name, kCopyToMidWayEvent);
+    dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
     // copy input to tensor
     if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
@@ -111,7 +111,7 @@ public:
     CUDA_CALL(cudaEventSynchronize(wait_event));
 
     // kCopyToMidWayEvent end
-    dadt::end_timeline_event(op_name, kCopyToMidWayEvent);
+    dadt::end_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
     // create task
     dadt::Task task;

@@ -61,12 +61,12 @@ void TimeLine::end(const std::string &op_name, const std::string& event_name) {
 
 // a lot of event begin
 void TimeLine::begin(const std::vector<std::string> &op_names, const std::string& event_name) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   std::string cat("PERF");
   std::string ph("B");
 
   auto ts = get_current_microseconds();
-
-  std::unique_lock<std::mutex> lock(mutex_);
 
   for (auto &op_name : op_names) {
     write(event_name, cat, ph, op_name, ts);
@@ -75,12 +75,12 @@ void TimeLine::begin(const std::vector<std::string> &op_names, const std::string
 
 // a lot of event end
 void TimeLine::end(const std::vector<std::string> &op_names, const std::string& event_name) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   std::string cat("PERF");
   std::string ph("E");
 
   auto ts = get_current_microseconds();
-
-  std::unique_lock<std::mutex> lock(mutex_);
 
   for (auto &op_name : op_names) {
     write(event_name, cat, ph, op_name, ts);
@@ -89,12 +89,12 @@ void TimeLine::end(const std::vector<std::string> &op_names, const std::string& 
 
 // a lot of task begin
 void TimeLine::begin(const std::vector<Task> &tasks, const std::string& event_name) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   std::string cat("PERF");
   std::string ph("B");
 
   auto ts = get_current_microseconds();
-
-  std::unique_lock<std::mutex> lock(mutex_);
 
   for (auto &task : tasks) {
     write(event_name, cat, ph, task.name, ts);
@@ -103,12 +103,12 @@ void TimeLine::begin(const std::vector<Task> &tasks, const std::string& event_na
 
 //a lot of task end
 void TimeLine::end(const std::vector<Task> &tasks, const std::string& event_name) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   std::string cat("PERF");
   std::string ph("E");
 
   auto ts = get_current_microseconds();
-
-  std::unique_lock<std::mutex> lock(mutex_);
 
   for (auto &task : tasks) {
     write(event_name, cat, ph, task.name, ts);
