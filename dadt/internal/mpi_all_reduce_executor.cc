@@ -43,8 +43,8 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::stri
 
   auto storage = TensorStorage::create(device, shape.size() * element_type.byte_width());
 
-  // the tensor in allreduce inited status is waitforfetch
-  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::WaitForFetch);
+  // the tensor in allreduce inited status is kWaitForFetch
+  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kWaitForFetch);
   
   tensor_pool_[name] = tensor;
 

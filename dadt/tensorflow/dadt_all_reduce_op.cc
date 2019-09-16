@@ -46,7 +46,7 @@ public:
     dadt::begin_timeline_event(op_name, dadt::kWaitForFetchEvent);
 
     // wait midway tensor finish task
-    midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
+    midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
 
     // kWaitForFetchEvent end
     dadt::end_timeline_event(op_name, dadt::kWaitForFetchEvent);
@@ -71,11 +71,11 @@ public:
     task.task_type = dadt::kDADTAllReduceTaskType;
 
     task.done = [midway_tensor] {
-      midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
+      midway_tensor->wait(dadt::LockTensorStatus::kInExecute, dadt::LockTensorStatus::kWaitForFetch);
     };
 
     // chang tensor status
-    midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InExecute);
+    midway_tensor->wait(dadt::LockTensorStatus::kInFetch, dadt::LockTensorStatus::kInExecute);
 
     // put task in queue
     dadt::enqueue_task(std::move(task));
@@ -121,7 +121,7 @@ public:
     dadt::begin_timeline_event(op_name, kWaitForFetchEvent);
 
     // wait midway tensor finish task
-    midway_tensor->wait(dadt::LockTensorStatus::WaitForFetch, dadt::LockTensorStatus::InFetch);
+    midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
 
     // kWaitForFetchEvent end
     dadt::end_timeline_event(op_name, kWaitForFetchEvent);
@@ -162,11 +162,11 @@ public:
     task.task_type = dadt::kDADTAllReduceTaskType;
 
     task.done = [midway_tensor] {
-      midway_tensor->wait(dadt::LockTensorStatus::InExecute, dadt::LockTensorStatus::WaitForFetch);
+      midway_tensor->wait(dadt::LockTensorStatus::kInExecute, dadt::LockTensorStatus::kWaitForFetch);
     };
 
     // change tensor status
-    midway_tensor->wait(dadt::LockTensorStatus::InFetch, dadt::LockTensorStatus::InExecute);
+    midway_tensor->wait(dadt::LockTensorStatus::kInFetch, dadt::LockTensorStatus::kInExecute);
 
     // put task in queue
     dadt::enqueue_task(std::move(task));

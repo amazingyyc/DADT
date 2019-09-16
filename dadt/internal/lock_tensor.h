@@ -18,14 +18,14 @@ namespace dadt {
 // at every different status the tensor should do different operator
 // 
 // the lock tensor status transition steps
-// InExecute: after fill new data, the tensor will put in a queue to do task, at here the status become InExecute
-// WaitForFetch: alter reduce thread exhcange data cross all node the tensor status will become WaitForFetch
-// InFetch: the compute thread is fetch data from the tensor and put new data in to it
-// alter finish fetch than status become InExecute
+// kInExecute: after fill new data, the tensor will put in a queue to do task, at here the status become kInExecute
+// kWaitForFetch: alter reduce thread exhcange data cross all node the tensor status will become kWaitForFetch
+// kInFetch: the compute thread is fetch data from the tensor and put new data in to it
+// alter finish fetch than status become kInExecute
 enum class LockTensorStatus: int {
-  InExecute    = 1,
-  WaitForFetch = 2,
-  InFetch      = 3,
+  kInExecute    = 1,
+  kWaitForFetch = 2,
+  kInFetch      = 3,
 };
 
 class LockTensor: public Tensor {

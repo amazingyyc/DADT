@@ -20,9 +20,9 @@ std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::stri
   // create a tensor storage
   auto storage = TensorStorage::create(device, shape.size() * element_type.byte_width());
 
-  // broadcast tensor inited status is InFetch
+  // broadcast tensor inited status is kInFetch
   // the status is not work for broadcast
-  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::InFetch);
+  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kInFetch);
 
   return tensor;
 }
