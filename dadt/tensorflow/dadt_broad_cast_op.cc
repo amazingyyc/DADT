@@ -32,7 +32,7 @@ public:
     auto element_type = convert_dtype_to_element_type(input.dtype());
 
     // broad cast tensor not need reuse
-    auto midway_tensor = dadt::create_midway_tensor(dadt::kDADTBroadCastTaskType, op_name, dims, element_type);
+    auto midway_tensor = dadt::create_midway_tensor(dadt::kBroadCastTaskType, op_name, dims, element_type);
 
     // CPU op only support CPU tensor 
     ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
@@ -51,7 +51,7 @@ public:
     dadt::Task task;
     task.name = op_name;
     task.tensor = midway_tensor;
-    task.task_type = dadt::kDADTBroadCastTaskType;
+    task.task_type = dadt::kBroadCastTaskType;
 
     task.done = [output, midway_tensor, done] {
       // after broadcast should copy data to output
@@ -89,7 +89,7 @@ public:
     auto dims = convert_tensor_shape_to_array(input.shape());
     auto element_type = convert_dtype_to_element_type(input.dtype());
 
-    auto midway_tensor = dadt::create_midway_tensor(dadt::kDADTBroadCastTaskType, op_name, dims, element_type);
+    auto midway_tensor = dadt::create_midway_tensor(dadt::kBroadCastTaskType, op_name, dims, element_type);
     
     // kCopyToMidWayEvent begin
     dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);
@@ -117,7 +117,7 @@ public:
     dadt::Task task;
     task.name = op_name;
     task.tensor = midway_tensor;
-    task.task_type = dadt::kDADTBroadCastTaskType;
+    task.task_type = dadt::kBroadCastTaskType;
 
     task.done = [output, midway_tensor, &gpu_device, wait_event, done] {
       // after broadcast should copy data to output

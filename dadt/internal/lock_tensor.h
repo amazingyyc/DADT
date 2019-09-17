@@ -23,9 +23,9 @@ namespace dadt {
 // kInFetch: the compute thread is fetch data from the tensor and put new data in to it
 // alter finish fetch than status become kInExecute
 enum class LockTensorStatus: int {
-  kInExecute    = 1,
-  kWaitForFetch = 2,
-  kInFetch      = 3,
+  kInExecute    = 0,
+  kWaitForFetch = 1,
+  kInFetch      = 2,
 };
 
 class LockTensor: public Tensor {

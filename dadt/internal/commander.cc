@@ -114,10 +114,10 @@ void Commander::init_context(Config config) {
 
   // create broadcast executor
   if (0 == config.broad_cast_executor_type) {
-    task_executors_[kDADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
+    task_executors_[kBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
   } else if (1 == config.broad_cast_executor_type) {
 #ifdef HAVE_NCCL
-    task_executors_[kDADTBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(context_.gpu_device_id);
+    task_executors_[kBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(context_.gpu_device_id);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
@@ -126,10 +126,10 @@ void Commander::init_context(Config config) {
   }
 
   if (0 == config.all_reduce_executor_type) {
-    task_executors_[kDADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(config.all_reduce_buffer_size);
+    task_executors_[kAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(config.all_reduce_buffer_size);
   } else if (1 == config.all_reduce_executor_type) {
 #ifdef HAVE_NCCL
-    task_executors_[kDADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id,
+    task_executors_[kAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id,
                                                                                       config.all_reduce_buffer_size);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
@@ -397,7 +397,7 @@ void Commander::shutdown() {
   // stop worker thread
   // put a shutdown task in queue
   Task shutdown_task;
-  shutdown_task.task_type = kDADTShutDownTaskType;
+  shutdown_task.task_type = kShutDownTaskType;
   shutdown_task.name      = DADT_SHUTDOWN_TASK_NAME;
 
   // shutdown system
@@ -541,9 +541,9 @@ bool Commander::worker_do_task() {
   // check whether shutdown
   bool shutdown = false;
 
-  if (execute_tasks.find(kDADTShutDownTaskType) != execute_tasks.end()) {
+  if (execute_tasks.find(kShutDownTaskType) != execute_tasks.end()) {
     shutdown = true;
-    execute_tasks.erase(kDADTShutDownTaskType);
+    execute_tasks.erase(kShutDownTaskType);
   }
 
   // for now every process have some task that will be executed

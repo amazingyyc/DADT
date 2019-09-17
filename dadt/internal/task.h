@@ -13,9 +13,9 @@ typedef int TaskType;
 
 // define the task type for now only support allreduce, broadcast
 // shutdown is a special task type use for shut down whole system
-const TaskType kDADTShutDownTaskType  = -1;
-const TaskType kDADTAllReduceTaskType = 0;
-const TaskType kDADTBroadCastTaskType = 1;
+const TaskType kShutDownTaskType  = -1;
+const TaskType kAllReduceTaskType = 0;
+const TaskType kBroadCastTaskType = 1;
 
 #define DADT_SHUTDOWN_TASK_NAME "shutdown"
 

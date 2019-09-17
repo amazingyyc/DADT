@@ -29,13 +29,13 @@ public:
     auto op_name = name();
 
     // get midway tensor
-    auto midway_tensor = dadt::obtain_midway_tensor(dadt::kDADTAllReduceTaskType, op_name);
+    auto midway_tensor = dadt::obtain_midway_tensor(dadt::kAllReduceTaskType, op_name);
 
     if (nullptr == midway_tensor) {
       auto dims = convert_tensor_shape_to_array(input.shape());
       auto element_type = convert_dtype_to_element_type(input.dtype());
 
-      midway_tensor = dadt::create_midway_tensor(dadt::kDADTAllReduceTaskType, op_name, dims, element_type);
+      midway_tensor = dadt::create_midway_tensor(dadt::kAllReduceTaskType, op_name, dims, element_type);
     }
 
     // CPU op only support CPU tensor 
@@ -68,7 +68,7 @@ public:
     dadt::Task task;
     task.name = op_name;
     task.tensor = midway_tensor;
-    task.task_type = dadt::kDADTAllReduceTaskType;
+    task.task_type = dadt::kAllReduceTaskType;
 
     task.done = [midway_tensor] {
       midway_tensor->wait(dadt::LockTensorStatus::kInExecute, dadt::LockTensorStatus::kWaitForFetch);
@@ -107,13 +107,13 @@ public:
     // get gpudevice
     const Eigen::GpuDevice& gpu_device = context->eigen_device<Eigen::GpuDevice>();
 
-    auto midway_tensor = dadt::obtain_midway_tensor(dadt::kDADTAllReduceTaskType, op_name);
+    auto midway_tensor = dadt::obtain_midway_tensor(dadt::kAllReduceTaskType, op_name);
 
     if (nullptr == midway_tensor) {
       auto dims = convert_tensor_shape_to_array(input.shape());
       auto element_type = convert_dtype_to_element_type(input.dtype());
 
-      midway_tensor = dadt::create_midway_tensor(dadt::kDADTAllReduceTaskType, op_name, dims, element_type);
+      midway_tensor = dadt::create_midway_tensor(dadt::kAllReduceTaskType, op_name, dims, element_type);
     }
 
     // kWaitForFetchEvent begin
@@ -158,7 +158,7 @@ public:
     dadt::Task task;
     task.name = op_name;
     task.tensor = midway_tensor;
-    task.task_type = dadt::kDADTAllReduceTaskType;
+    task.task_type = dadt::kAllReduceTaskType;
 
     task.done = [midway_tensor] {
       midway_tensor->wait(dadt::LockTensorStatus::kInExecute, dadt::LockTensorStatus::kWaitForFetch);
