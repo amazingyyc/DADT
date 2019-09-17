@@ -36,7 +36,7 @@ public:
 
     // CPU op only support CPU tensor 
     ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
-    "CPU op must use CPU tensor, so please set broad cast executor to be MPI");
+    "CPU op must use CPU tensor, so please choose MPI executor to do braodcast.");
 
     // kCopyToMidWayEvent begin
     dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);

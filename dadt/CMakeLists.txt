@@ -49,9 +49,11 @@ set(DADT_SRC_FILES
 if (HAVE_NCCL)
   list(APPEND DADT_HEADER_FILES internal/nccl_all_reduce_executor.h)
   list(APPEND DADT_HEADER_FILES internal/nccl_broad_cast_executor.h)
+  list(APPEND DADT_HEADER_FILES internal/mpi_cuda_all_reduce_executor.h)
 
   list(APPEND DADT_SRC_FILES internal/nccl_all_reduce_executor.cc)
   list(APPEND DADT_SRC_FILES internal/nccl_broad_cast_executor.cc)
+  list(APPEND DADT_HEADER_FILES internal/mpi_cuda_all_reduce_executor.cc)
 endif()
 
 add_library(dadt SHARED ${DADT_HEADER_FILES} ${DADT_SRC_FILES})

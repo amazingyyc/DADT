@@ -23,6 +23,7 @@
 #ifdef HAVE_NCCL 
 #include "nccl_broad_cast_executor.h"
 #include "nccl_all_reduce_executor.h"
+#include "mpi_cuda_all_reduce_executor.h"
 #endif
 
 namespace dadt {
@@ -104,6 +105,13 @@ void Commander::init_context(Config config) {
   MPI_CALL(MPI_Barrier(context_.world_comm));
 #endif
 
+  // get cpu device and gpu device
+  auto cpu_device = get_cpu_device();
+
+#ifdef HAVE_NCCL
+  auto gpu_device = get_gpu_device(context_.gpu_device_id);
+#endif
+
   // set cycle time
   if (config.cycle_duration_ms <= 0) {
     config.cycle_duration_ms = 5;
@@ -113,29 +121,34 @@ void Commander::init_context(Config config) {
   context_.cycle_duration_us = config.cycle_duration_ms * 1000;
 
   // create broadcast executor
-  if (0 == config.broad_cast_executor_type) {
-    task_executors_[kBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
-  } else if (1 == config.broad_cast_executor_type) {
+  if (0 == config.broad_cast_executor) {
+    task_executors_[kBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>(cpu_device);
+  } else if (1 == config.broad_cast_executor) {
 #ifdef HAVE_NCCL
-    task_executors_[kBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(context_.gpu_device_id);
+    task_executors_[kBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(gpu_device);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
   } else {
-    RUNTIME_ERROR("broad_cast_executor_type error, please set to be 0(MPI) or 1(NCCL)");
+    RUNTIME_ERROR("broad_cast_executor error, please set to be 0(MPI) or 1(NCCL)");
   }
 
-  if (0 == config.all_reduce_executor_type) {
-    task_executors_[kAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(config.all_reduce_buffer_size);
-  } else if (1 == config.all_reduce_executor_type) {
+  if (0 == config.all_reduce_executor) {
+    task_executors_[kAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(cpu_device, config.all_reduce_buffer_size);
+  } else if (1 == config.all_reduce_executor) {
 #ifdef HAVE_NCCL
-    task_executors_[kAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id,
-                                                                                      config.all_reduce_buffer_size);
+    task_executors_[kAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
+  } else if (2 == config.all_reduce_executor) {
+#ifdef HAVE_NCCL
+    task_executors_[kAllReduceTaskType] = std::make_shared<MPICUDAAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
+#else
+    RUNTIME_ERROR("compile without a GPU, can not create a MPI CUDA executor");
+#endif
   } else {
-    RUNTIME_ERROR("all_reduce_executor_type error, please set to be 0(MPI) or 1(NCCL)");
+    RUNTIME_ERROR("all_reduce_executor error, please set to be 0(MPI) or 1(NCCL) or 2(MPICUDA)");
   }
 
   // whether enable timeline
@@ -569,10 +582,6 @@ bool Commander::worker_do_task() {
 
     // use the corresponding executor to do the task
     (*task_executors_[task_type])(context_, tasks, timeline_);
-  }
-
-  if (shutdown) {
-    ARGUMENT_CHECK(task_register_.empty() && task_pool_.empty(), "get shutdown signal, but there still left task.");
   }
 
   return shutdown;

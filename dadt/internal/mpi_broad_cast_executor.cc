@@ -2,7 +2,7 @@
 
 namespace dadt {
 
-MPIBroadCastExecutor::MPIBroadCastExecutor() {
+MPIBroadCastExecutor::MPIBroadCastExecutor(std::shared_ptr<Device> cpu_device): cpu_device_(cpu_device) {
 }
 
 std::shared_ptr<LockTensor> MPIBroadCastExecutor::obtain_midway_tensor(std::string name) {
@@ -10,15 +10,11 @@ std::shared_ptr<LockTensor> MPIBroadCastExecutor::obtain_midway_tensor(std::stri
 }
 
 std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  // the broadcast executor only works once, so we do not store the tensor for reuse
-  // MPI broadcast should need cpu tensor
-  auto device = get_cpu_device();
-
   // tensor shape
   Shape shape(dims);
 
-  // create a tensor storage
-  auto storage = TensorStorage::create(device, shape.size() * element_type.byte_width());
+  // MPI broadcast should need cpu tensor
+  auto storage = TensorStorage::create(cpu_device_, shape.size() * element_type.byte_width());
 
   // broadcast tensor inited status is kInFetch
   // the status is not work for broadcast

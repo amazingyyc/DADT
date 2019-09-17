@@ -15,15 +15,15 @@ namespace dadt {
 
 class NCCLBroadCastExecutor: public ITaskExecutor {
 private:
-  // gpu device id
-  int gpu_device_id_;
+  // NCCLAllReduceExecutor will GPU midway tensor
+  std::shared_ptr<Device> gpu_device_;
 
   // use a event wait cuda stream finish
   cudaEvent_t finish_event_;
 
 public:
   // gpu_device_id: gpu device
-  NCCLBroadCastExecutor(int gpu_device_id);
+  NCCLBroadCastExecutor(std::shared_ptr<Device> gpu_device);
 
   ~NCCLBroadCastExecutor();
 

@@ -8,8 +8,13 @@
 namespace dadt {
 
 class MPIBroadCastExecutor: public ITaskExecutor {
+private:
+  // cpu Device
+  // MPIBroadCastExecutor will use CPU midway tensor
+  std::shared_ptr<Device> cpu_device_;
+
 public:
-  MPIBroadCastExecutor();
+  MPIBroadCastExecutor(std::shared_ptr<Device> cpu_device);
 
   // if has already create a midway tensor
   std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) override;

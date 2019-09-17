@@ -40,7 +40,7 @@ public:
 
     // CPU op only support CPU tensor 
     ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
-    "CPU op must use CPU tensor, so please set all reduce executor to be MPI");
+    "CPU op must use CPU tensor, choose a MPI executor to do CPU all reduce.");
 
     // kWaitForFetchEvent begin
     dadt::begin_timeline_event(op_name, dadt::kWaitForFetchEvent);

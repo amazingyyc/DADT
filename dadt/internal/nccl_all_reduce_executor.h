@@ -14,8 +14,12 @@
 
 namespace dadt {
 
+// nccl all reduce
 class NCCLAllReduceExecutor: public ITaskExecutor {
 private:
+  // NCCLAllReduceExecutor will GPU midway tensor
+  std::shared_ptr<Device> gpu_device_;
+
   // tensor_pool_ will used in multi-thread
   std::mutex pool_mutex_;
 
@@ -25,16 +29,13 @@ private:
   // a gpu buffer
   MemoryBuffer buffer_;
 
-  // gpu device id
-  int gpu_device_id_;
-
   // use a event wait all reduce finish
   cudaEvent_t finish_event_;
 
 public:
   // gpu_device_id: gpu device
   // buffer_size: buffer size
-  NCCLAllReduceExecutor(int gpu_device_id, size_t buffer_size = 67108864);
+  NCCLAllReduceExecutor(std::shared_ptr<Device> gpu_device, size_t buffer_size = 67108864);
 
   ~NCCLAllReduceExecutor();
 

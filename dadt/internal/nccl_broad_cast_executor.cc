@@ -3,7 +3,7 @@
 
 namespace dadt {
 
-NCCLBroadCastExecutor::NCCLBroadCastExecutor(int gpu_device_id): gpu_device_id_(gpu_device_id) {
+NCCLBroadCastExecutor::NCCLBroadCastExecutor(std::shared_ptr<Device> gpu_device): gpu_device_(gpu_device) {
   // use a event wait broad cast finish
   CUDA_CALL(cudaEventCreate(&finish_event_));
 }
@@ -17,12 +17,9 @@ std::shared_ptr<LockTensor> NCCLBroadCastExecutor::obtain_midway_tensor(std::str
 }
 
 std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  // create GPU tensor
-  auto device = get_gpu_device(gpu_device_id_);
-
   Shape shape(dims);
 
-  auto storage = TensorStorage::create(device, shape.size() * element_type.byte_width());
+  auto storage = TensorStorage::create(gpu_device_, shape.size() * element_type.byte_width());
 
   auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kInFetch);
 

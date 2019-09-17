@@ -3,23 +3,17 @@
 
 namespace dadt {
 
-MPIAllReduceExecutor::MPIAllReduceExecutor(size_t buffer_size): buffer_(get_cpu_device()) {
-  if (buffer_size <= 0) {
-    buffer_size = 64 * 1024 * 1024;
-  }
-  
+MPIAllReduceExecutor::MPIAllReduceExecutor(std::shared_ptr<Device> cpu_device, size_t buffer_size)
+  : cpu_device_(cpu_device), buffer_(cpu_device) {
   buffer_.reserve(buffer_size);
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::string name) {
-  // add lock
   std::unique_lock<std::mutex> lock(pool_mutex_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
   }
-
-  lock.unlock();
 
   return std::shared_ptr<LockTensor>();
 }
@@ -36,12 +30,10 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::stri
     return tensor;
   }
 
-  // create a cpu tensor
-  auto device = get_cpu_device();
-
   Shape shape(dims);
 
-  auto storage = TensorStorage::create(device, shape.size() * element_type.byte_width());
+  // create a CPU tensor
+  auto storage = TensorStorage::create(cpu_device_, shape.size() * element_type.byte_width());
 
   // the tensor in allreduce inited status is kWaitForFetch
   auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kWaitForFetch);

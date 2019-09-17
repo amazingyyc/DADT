@@ -19,12 +19,13 @@ struct Config {
   // what kind broad cast executor used
   // 0: mpi
   // 1: nccl
-  int broad_cast_executor_type;
+  int broad_cast_executor;
 
   // what kind all reduce executor should be used
   // 0: mpi all reduce
   // 1: nccl all reduce
-  int all_reduce_executor_type;
+  // 2: mpi cuda all reduce
+  int all_reduce_executor;
 
   // all reduce buffer size
   size_t all_reduce_buffer_size;
