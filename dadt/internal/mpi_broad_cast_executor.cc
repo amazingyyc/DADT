@@ -40,15 +40,13 @@ void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<
 
     // broad cast from rank 0
     MPI_CALL(MPI_Bcast(sendbuf, count, mpi_dtype, 0, context.world_comm));
-  }
 
-  for (auto &task : tasks) {
+    // finish callback
     task.done();
-  }
 
-  // end broad cast timeline
-  if (context.enable_timeline.load()) {
-    timeline->end(tasks, kDoBroadCastEvent);
+    if (context.enable_timeline.load()) {
+      timeline->end(task.name, kDoBroadCastEvent);
+    }
   }
 }
 

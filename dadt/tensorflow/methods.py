@@ -16,6 +16,7 @@ cycle_duration_ms: background thread sleep time, millisecond
 broad_cast_executor: what kind broadcast executor will be used
 0: mpi broad cast
 1: nccl broadcast
+2: mpi cuda boadcast
 
 all_reduce_executor:what kind all reduce executor should be used
 0: mpi all reduce
@@ -64,8 +65,10 @@ def init(cycle_duration_ms=5,
     broad_cast_executor_type = 0
   elif 'nccl' == broad_cast_executor:
     broad_cast_executor_type = 1
+  elif 'mpicuda' == broad_cast_executor:
+    broad_cast_executor_type = 2
   else:
-    raise ValueError('broad_cast_executor must one of "mpi" or "nccl"')
+    raise ValueError('broad_cast_executor must one of "mpi" or "nccl" or "mpicuda"')
 
   if 'mpi' == all_reduce_executor:
     all_reduce_executor_type = 0

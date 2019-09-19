@@ -23,6 +23,7 @@
 #ifdef HAVE_NCCL 
 #include "nccl_broad_cast_executor.h"
 #include "nccl_all_reduce_executor.h"
+#include "mpi_cuda_broad_cast_executor.h"
 #include "mpi_cuda_all_reduce_executor.h"
 #endif
 
@@ -129,8 +130,14 @@ void Commander::init_context(Config config) {
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
+  } else if (2 == config.broad_cast_executor) {
+#ifdef HAVE_NCCL
+    task_executors_[kBroadCastTaskType] = std::make_shared<MPICUDABroadCastExecutor>(gpu_device);
+#else
+    RUNTIME_ERROR("compile without a GPU, can not create a MPI CUDA executor");
+#endif
   } else {
-    RUNTIME_ERROR("broad_cast_executor error, please set to be 0(MPI) or 1(NCCL)");
+    RUNTIME_ERROR("broad_cast_executor error, please set to be 0(MPI) or 1(NCCL) or 2(MPICUDA)");
   }
 
   if (0 == config.all_reduce_executor) {
