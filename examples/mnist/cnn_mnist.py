@@ -130,7 +130,7 @@ def main(unused_argv):
   mnist_classifier.train(
     input_fn=train_input_fn,
     steps=100,
-    hooks=[])
+    hooks=[dadt_hook])
 
   # Evaluate the model and print results
   eval_input_fn = tf.estimator.inputs.numpy_input_fn(
