@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <functional>
+#include <memory>
 
 namespace dadt {
 
@@ -12,9 +13,9 @@ typedef int TaskType;
 
 // define the task type for now only support allreduce, broadcast
 // shutdown is a special task type use for shut down whole system
-const TaskType DADTShutDownTaskType  = -1;
-const TaskType DADTAllReduceTaskType = 0;
-const TaskType DADTBroadCastTaskType = 1;
+const TaskType kShutDownTaskType  = -1;
+const TaskType kAllReduceTaskType = 0;
+const TaskType kBroadCastTaskType = 1;
 
 #define DADT_SHUTDOWN_TASK_NAME "shutdown"
 
@@ -26,7 +27,7 @@ struct Task {
   // every tensor/op have a unique name
   std::string name;
 
-  // a tesnor used for this task
+  // a tesnor used for this task, for shutdown it is null
   std::shared_ptr<LockTensor> tensor;
 
   // when finish call this function

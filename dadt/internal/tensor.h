@@ -52,14 +52,6 @@ public:
   int num_bytes() const;
 
   int dim(int) const;
-
-  // copy memory from other 
-  // for GPU the copy is synchronous 
-  void copy_from(const void *data, bool is_gpu);
-
-  // copy memory to other
-  // for GPU the copy is synchronous 
-  void copy_to(void *data, bool is_gpu);
 };
 
 }

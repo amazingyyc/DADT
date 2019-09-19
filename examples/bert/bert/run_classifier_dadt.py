@@ -789,7 +789,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
 
 
 def main(_):
-  dadt.init(broad_cast_executor_type=1, all_reduce_executor_type=1)
+  dadt.init(broad_cast_executor='nccl', all_reduce_executor='nccl')
 
   tf.logging.set_verbosity(tf.logging.INFO)
 

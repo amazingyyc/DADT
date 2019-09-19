@@ -13,15 +13,22 @@ from tensorflow.python.ops import sparse_ops
 '''
 dadt config
 cycle_duration_ms: background thread sleep time, millisecond
-broad_cast_executor_type: 0: mpi broad cast, 1: nccl broadcast
-all_reduce_executor_type:what kind all reduce executor should be used
+broad_cast_executor: what kind broadcast executor will be used
+0: mpi broad cast
+1: nccl broadcast
+2: mpi cuda boadcast
+
+all_reduce_executor:what kind all reduce executor should be used
 0: mpi all reduce
 1: nccl all reduce
+2: mpi cuda all reduce
 '''
 class Config(ctypes.Structure):
   _fields_ = [("cycle_duration_ms", ctypes.c_int), 
-              ("broad_cast_executor_type", ctypes.c_int),
-              ("all_reduce_executor_type", ctypes.c_int)]
+              ("broad_cast_executor", ctypes.c_int),
+              ("all_reduce_executor", ctypes.c_int),
+              ("all_reduce_buffer_size", ctypes.c_size_t),
+              ("timeline_path", ctypes.c_char_p)]
 
 if 'Windows' == platform.system():
   dadt_library_suffix = '.dll'
@@ -41,11 +48,49 @@ dadt_native_module = ctypes.CDLL(dadt_library_path, mode=ctypes.RTLD_GLOBAL)
 '''set the argumentation type'''
 dadt_native_module.init.argtypes = (Config, )
 
-'''init dadt'''
-def init(cycle_duration_ms=5, broad_cast_executor_type=0, all_reduce_executor_type=0):
-  dadt_native_module.init(Config(cycle_duration_ms=cycle_duration_ms,
-                                 broad_cast_executor_type=broad_cast_executor_type,
-                                 all_reduce_executor_type=all_reduce_executor_type))
+'''
+init dadt
+broad_cast_executor: accept 'mpi', 'nccl'
+all_reduce_executor: accept 'mpi', 'nccl', 'mpicuda'
+'''
+def init(cycle_duration_ms=5, 
+         broad_cast_executor='nccl',
+         all_reduce_executor='nccl', 
+         all_reduce_buffer_size=67108864,
+         timeline_path=None):
+  broad_cast_executor = broad_cast_executor.lower()
+  all_reduce_executor = all_reduce_executor.lower()
+
+  if 'mpi' == broad_cast_executor:
+    broad_cast_executor_type = 0
+  elif 'nccl' == broad_cast_executor:
+    broad_cast_executor_type = 1
+  elif 'mpicuda' == broad_cast_executor:
+    broad_cast_executor_type = 2
+  else:
+    raise ValueError('broad_cast_executor must one of "mpi" or "nccl" or "mpicuda"')
+
+  if 'mpi' == all_reduce_executor:
+    all_reduce_executor_type = 0
+  elif 'nccl' == all_reduce_executor:
+    all_reduce_executor_type = 1
+  elif 'mpicuda' == all_reduce_executor:
+    all_reduce_executor_type = 2
+  else:
+    raise ValueError('broad_cast_executor must one of "mpi" or "nccl" or "mpicuda"')
+
+  if timeline_path is None or not isinstance(timeline_path, str) or '' == timeline_path:
+    timeline_path_p = None
+  else:
+    timeline_path_p = ctypes.c_char_p(timeline_path.encode('utf-8'))
+  
+  config = Config(cycle_duration_ms=cycle_duration_ms,
+                    broad_cast_executor=broad_cast_executor_type,
+                    all_reduce_executor=all_reduce_executor_type,
+                    all_reduce_buffer_size=all_reduce_buffer_size,
+                    timeline_path=timeline_path_p)
+
+  dadt_native_module.init(config)
 
 '''shutdown whole system'''
 def shutdown():
@@ -148,7 +193,7 @@ class DistributedOptimizer(tf.train.Optimizer):
       with tf.name_scope(self._name + 'AllReduce'):
         for grad, var in origin_gradients:
           if grad is not None:
-            if  isinstance(grad, tf.IndexedSlices):
+            if isinstance(grad, tf.IndexedSlices):
               grad = tf.convert_to_tensor(grad)
             
             avg_grad = all_reduce(grad)

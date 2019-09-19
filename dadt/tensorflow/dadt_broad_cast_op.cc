@@ -1,4 +1,6 @@
+#ifdef HAVE_NCCL
 #define EIGEN_USE_GPU
+#endif
 
 #include "tensorflow_utils.h"
 #include "internal.h"
@@ -26,37 +28,41 @@ public:
     // get name
     auto op_name = name();
 
-    dadt::enqueue_job([op_name, &input, output, done] {
-      // get midway tensor, all job is execute in same thread, do not need mutex
-      auto dims = convert_tensor_shape_to_array(input.shape());
-      auto element_type = convert_dtype_to_element_type(input.dtype());
+    auto dims = convert_tensor_shape_to_array(input.shape());
+    auto element_type = convert_dtype_to_element_type(input.dtype());
 
-      auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, op_name, dims, element_type);
+    // broad cast tensor not need reuse
+    auto midway_tensor = dadt::create_midway_tensor(dadt::kBroadCastTaskType, op_name, dims, element_type);
 
-      // CPU op only support CPU tensor 
-      ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
-      "CPU op must use CPU tensor, so please set broad cast executor to be MPI");
+    // CPU op only support CPU tensor 
+    ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
+    "CPU op must use CPU tensor, so please choose MPI executor to do braodcast.");
 
-      // copy input to midway tensor
-      std::memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+    // kCopyToMidWayEvent begin
+    dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
-      // create a task
-      dadt::Task task;
-      task.name = op_name;
-      task.tensor = midway_tensor;
-      task.task_type = dadt::DADTBroadCastTaskType;
+    // copy input to midway tensor
+    std::memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
 
-      task.done = [output, midway_tensor, done] {
-        // after broadcast should copy data to output
-        std::memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+    // kCopyToMidWayEvent begin
+    dadt::end_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
-        // done callback
-        done();
-      };
+    // create a task
+    dadt::Task task;
+    task.name = op_name;
+    task.tensor = midway_tensor;
+    task.task_type = dadt::kBroadCastTaskType;
 
-      // put task in queue
-      dadt::enqueue_task(std::move(task));
-    });
+    task.done = [output, midway_tensor, done] {
+      // after broadcast should copy data to output
+      std::memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
+
+      // done callback
+      done();
+    };
+
+    // put task in queue
+    dadt::enqueue_task(std::move(task));
   }
 };
 
@@ -80,54 +86,57 @@ public:
     // get gpudevice
     const Eigen::GpuDevice& gpu_device = context->eigen_device<Eigen::GpuDevice>();
 
-    dadt::enqueue_job([op_name, &input, output, &gpu_device, done] {
-      // get midway tensor, all job is execute in same thread, do not need mutex
-      auto dims = convert_tensor_shape_to_array(input.shape());
-      auto element_type = convert_dtype_to_element_type(input.dtype());
+    auto dims = convert_tensor_shape_to_array(input.shape());
+    auto element_type = convert_dtype_to_element_type(input.dtype());
 
-      auto midway_tensor = dadt::create_midway_tensor(dadt::DADTBroadCastTaskType, op_name, dims, element_type);
+    auto midway_tensor = dadt::create_midway_tensor(dadt::kBroadCastTaskType, op_name, dims, element_type);
+    
+    // kCopyToMidWayEvent begin
+    dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 
-      // copy input to tensor
+    // copy input to tensor
+    if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
+      // copy input to cpu tensor
+      gpu_device.memcpyDeviceToHost(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+    } else {
+      // copy input to gpu tensor
+      gpu_device.memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+    }
+
+    // wait copy finish
+    auto wait_event = dadt::obtain_cuda_event();
+
+    // put wait event into stream and wait event finish
+    CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
+    CUDA_CALL(cudaEventSynchronize(wait_event));
+
+    // kCopyToMidWayEvent end
+    dadt::end_timeline_event(op_name, dadt::kCopyToMidWayEvent);
+
+    // create task
+    dadt::Task task;
+    task.name = op_name;
+    task.tensor = midway_tensor;
+    task.task_type = dadt::kBroadCastTaskType;
+
+    task.done = [output, midway_tensor, &gpu_device, wait_event, done] {
+      // after broadcast should copy data to output
       if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
-        // copy input to cpu tensor
-        gpu_device.memcpyDeviceToHost(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+        gpu_device.memcpyHostToDevice((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
       } else {
-        // copy input to gpu tensor
-        gpu_device.memcpy(midway_tensor->ptr(), input.tensor_data().data(), midway_tensor->num_bytes());
+        gpu_device.memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
       }
 
       // wait copy finish
-      auto wait_event = dadt::obtain_cuda_event(op_name);
-
-      // put wait event into stream and wait event finish
       CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
       CUDA_CALL(cudaEventSynchronize(wait_event));
 
-      // create task
-      dadt::Task task;
-      task.name = op_name;
-      task.tensor = midway_tensor;
-      task.task_type = dadt::DADTBroadCastTaskType;
+      // done callback
+      done();
+    };
 
-      task.done = [output, midway_tensor, &gpu_device, wait_event, done] {
-        // after broadcast should copy data to output
-        if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
-          gpu_device.memcpyHostToDevice((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
-        } else {
-          gpu_device.memcpy((void*) output->tensor_data().data(), midway_tensor->ptr(), midway_tensor->num_bytes());
-        }
-
-        // wait copy finish
-        CUDA_CALL(cudaEventRecord(wait_event, gpu_device.stream()));
-        CUDA_CALL(cudaEventSynchronize(wait_event));
-
-        // done callback
-        done();
-      };
-
-      // put task in queue
-      dadt::enqueue_task(std::move(task));
-    });
+    // put task in queue
+    dadt::enqueue_task(std::move(task));
   }
 };
 #endif

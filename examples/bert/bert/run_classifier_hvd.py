@@ -679,7 +679,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
       log_hook = tf.train.LoggingTensorHook({"loss:": total_loss, 
                                              "global_step:": tf.train.get_global_step(), 
                                              "l2_norm": l2_norm}, 
-                                             every_n_iter=100)
+                                             every_n_iter=1)
 
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
@@ -881,7 +881,7 @@ def main(_):
       predict_batch_size=FLAGS.predict_batch_size)
 
   # create a broad cast hook
-  bcast_hook = hvd.BroadcastGlobalVariablesHook()
+  bcast_hook = hvd.BroadcastGlobalVariablesHook(0)
 
   if FLAGS.do_train:
     train_file = os.path.join(FLAGS.output_dir, "train" + str(hvd.local_rank())+ ".tf_record")

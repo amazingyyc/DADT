@@ -10,6 +10,7 @@
 #include "task.h"
 #include "element_type.h"
 #include "lock_tensor.h"
+#include "timeline.h"
 
 namespace dadt {
 
@@ -47,11 +48,14 @@ void local_barrier();
 // put a task in queue
 void enqueue_task(Task &&t);
 
-// put a job is async queue
-void enqueue_job(std::function<void()> &&job);
+// timeline event begin
+void begin_timeline_event(const std::string &name, const std::string &event);
+
+// timeline event end
+void end_timeline_event(const std::string &name, const std::string &event);
 
 #ifdef HAVE_NCCL
-cudaEvent_t obtain_cuda_event(const std::string &name);
+cudaEvent_t obtain_cuda_event();
 #endif
 
 // if have a midway tensor corresponding the tasktype

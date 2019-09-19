@@ -23,6 +23,8 @@
 #ifdef HAVE_NCCL 
 #include "nccl_broad_cast_executor.h"
 #include "nccl_all_reduce_executor.h"
+#include "mpi_cuda_broad_cast_executor.h"
+#include "mpi_cuda_all_reduce_executor.h"
 #endif
 
 namespace dadt {
@@ -104,6 +106,13 @@ void Commander::init_context(Config config) {
   MPI_CALL(MPI_Barrier(context_.world_comm));
 #endif
 
+  // get cpu device and gpu device
+  auto cpu_device = get_cpu_device();
+
+#ifdef HAVE_NCCL
+  auto gpu_device = get_gpu_device(context_.gpu_device_id);
+#endif
+
   // set cycle time
   if (config.cycle_duration_ms <= 0) {
     config.cycle_duration_ms = 5;
@@ -113,28 +122,55 @@ void Commander::init_context(Config config) {
   context_.cycle_duration_us = config.cycle_duration_ms * 1000;
 
   // create broadcast executor
-  if (0 == config.broad_cast_executor_type) {
-    task_executors_[DADTBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>();
-  } else if (1 == config.broad_cast_executor_type) {
+  if (0 == config.broad_cast_executor) {
+    task_executors_[kBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>(cpu_device);
+  } else if (1 == config.broad_cast_executor) {
 #ifdef HAVE_NCCL
-    task_executors_[DADTBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(context_.gpu_device_id);
+    task_executors_[kBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(gpu_device);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
+  } else if (2 == config.broad_cast_executor) {
+#ifdef HAVE_NCCL
+    task_executors_[kBroadCastTaskType] = std::make_shared<MPICUDABroadCastExecutor>(gpu_device);
+#else
+    RUNTIME_ERROR("compile without a GPU, can not create a MPI CUDA executor");
+#endif
   } else {
-    RUNTIME_ERROR("broad_cast_executor_type error, please set to be 0(MPI) or 1(NCCL)");
+    RUNTIME_ERROR("broad_cast_executor error, please set to be 0(MPI) or 1(NCCL) or 2(MPICUDA)");
   }
 
-  if (0 == config.all_reduce_executor_type) {
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>();
-  } else if (1 == config.all_reduce_executor_type) {
+  if (0 == config.all_reduce_executor) {
+    task_executors_[kAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(cpu_device, config.all_reduce_buffer_size);
+  } else if (1 == config.all_reduce_executor) {
 #ifdef HAVE_NCCL
-    task_executors_[DADTAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(context_.gpu_device_id);
+    task_executors_[kAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
 #else
     RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
 #endif
+  } else if (2 == config.all_reduce_executor) {
+#ifdef HAVE_NCCL
+    task_executors_[kAllReduceTaskType] = std::make_shared<MPICUDAAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
+#else
+    RUNTIME_ERROR("compile without a GPU, can not create a MPI CUDA executor");
+#endif
   } else {
-    RUNTIME_ERROR("all_reduce_executor_type error, please set to be 0(MPI) or 1(NCCL)");
+    RUNTIME_ERROR("all_reduce_executor error, please set to be 0(MPI) or 1(NCCL) or 2(MPICUDA)");
+  }
+
+  // whether enable timeline
+  // only rank 0 will write timeline
+  if (0 == context_.world_rank && nullptr != config.timeline_path) {
+    // enable timeline
+    context_.enable_timeline = true;
+
+    // file path
+    std::string path(config.timeline_path);
+
+    // create a timeline
+    timeline_ = std::make_shared<TimeLine>(path);
+  } else {
+    context_.enable_timeline = false;
   }
 
   // set the flag
@@ -292,6 +328,11 @@ bool Commander::check_execute_task(int rank, TaskType task_type, std::string nam
 
 // exchange the tasks with each process
 std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_tasks(std::vector<Task> &tasks) {
+  // timeline kStayInTaskPoolEvent
+  if (context_.enable_timeline.load()) {
+    timeline_->begin(tasks, kStayInTaskPoolEvent);
+  }
+
   // step1: put all task in task_pool
   for (auto &t : tasks) {
     auto key = std::make_tuple(t.task_type, t.name);
@@ -347,6 +388,13 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
     }
   }
 
+  // timeline
+  if (context_.enable_timeline.load()) {
+    for (auto &item : will_execute_tasks) {
+      timeline_->end(item.second, kStayInTaskPoolEvent);
+    }
+  }
+
   // for now we have get all task that will be executed at this time
   // every process have the same ready [task_type, tensor_ids]  
   return std::move(will_execute_tasks);
@@ -355,10 +403,6 @@ std::unordered_map<TaskType, std::vector<Task>> Commander::exchange_execute_task
 // init the commander
 void Commander::init(Config config) {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
-
-  // init thread pool
-  // only one thread
-  async_queue_.init(1);
 
   // init a thread and wait finish init context
   worker_thread_ = std::thread(&Commander::worker_do_cycle, this, config);
@@ -370,13 +414,10 @@ void Commander::init(Config config) {
 void Commander::shutdown() {
   ARGUMENT_CHECK(initialized_, "the commander has not initialized");
 
-  // stop async queue
-  async_queue_.stop();
-
   // stop worker thread
   // put a shutdown task in queue
   Task shutdown_task;
-  shutdown_task.task_type = DADTShutDownTaskType;
+  shutdown_task.task_type = kShutDownTaskType;
   shutdown_task.name      = DADT_SHUTDOWN_TASK_NAME;
 
   // shutdown system
@@ -388,7 +429,7 @@ void Commander::shutdown() {
   initialized_ = false;
 }
 
-// if the commander have been initialized
+// whether the commander have been initialized
 bool Commander::initialized() {
   return initialized_.load();
 }
@@ -439,28 +480,43 @@ void Commander::local_barrier() {
 void Commander::enqueue_task(Task &&t) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
+    // timeline
+  if (context_.enable_timeline.load()) {
+    timeline_->begin(t.name, kStayInTaskQueueEvent);
+  }
+
   auto ret = task_queue_.enqueue(t);
 
   ARGUMENT_CHECK(ret, "enqueue task to queue get error!");
 }
 
-// put a task is async queue
-void Commander::enqueue_job(std::function<void()> &&task) {
-  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+// timeline event
+void Commander::begin_timeline_event(const std::string &name, const std::string &event) {
+  if (context_.enable_timeline.load()) {
+    timeline_->begin(name, event);
+  }
+}
 
-  async_queue_.enqueue(std::move(task));
+void Commander::end_timeline_event(const std::string &name, const std::string &event) {
+  if (context_.enable_timeline.load()) {
+    timeline_->end(name, event);
+  }
 }
 
 #ifdef HAVE_NCCL
-cudaEvent_t Commander::obtain_cuda_event(const std::string &name) {
-  if (op_cuda_events_.find(name) == op_cuda_events_.end()) {
+cudaEvent_t Commander::obtain_cuda_event() {
+  std::unique_lock<std::mutex> lock(op_cuda_event_mutex_);
+
+  auto id = std::this_thread::get_id();
+
+  if (op_cuda_events_.find(id) == op_cuda_events_.end()) {
     cudaEvent_t event;
     CUDA_CALL(cudaEventCreate(&event));
 
-    op_cuda_events_[name] = event;
+    op_cuda_events_[id] = event;
   }
 
-  return op_cuda_events_[name];
+  return op_cuda_events_[id];
 }
 #endif
 
@@ -494,15 +550,20 @@ bool Commander::worker_do_task() {
     }
   }
 
+  // timeline out of queue
+  if (context_.enable_timeline.load()) {
+    timeline_->end(tasks, kStayInTaskQueueEvent);
+  }
+
   // step2, exchange with other node
   auto execute_tasks = exchange_execute_tasks(tasks);
 
   // check whether shutdown
   bool shutdown = false;
 
-  if (execute_tasks.find(DADTShutDownTaskType) != execute_tasks.end()) {
+  if (execute_tasks.find(kShutDownTaskType) != execute_tasks.end()) {
     shutdown = true;
-    execute_tasks.erase(DADTShutDownTaskType);
+    execute_tasks.erase(kShutDownTaskType);
   }
 
   // for now every process have some task that will be executed
@@ -527,12 +588,7 @@ bool Commander::worker_do_task() {
     });
 
     // use the corresponding executor to do the task
-    (*task_executors_[task_type])(context_, tasks);
-
-    // after execute the task callback
-    for (auto &t : tasks) {
-      t.done();
-    }
+    (*task_executors_[task_type])(context_, tasks, timeline_);
   }
 
   return shutdown;

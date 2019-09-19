@@ -13,6 +13,7 @@
 #include "context.h"
 #include "task_executor.h"
 #include "thread_pool.h"
+#include "timeline.h"
 
 namespace dadt {
 
@@ -22,7 +23,7 @@ private:
   // context
   Context context_;
 
-  // a map store the task_type with corresponding task op
+  // a map store the task_type with corresponding task executor
   std::unordered_map<TaskType, std::shared_ptr<ITaskExecutor>> task_executors_;
 
   // a flag represent whether dadt finish initizlized
@@ -41,14 +42,14 @@ private:
   // this map used for record how many process has put same task in queue
   std::unordered_map<TaskKey, std::unordered_set<int>, TaskKeyHash, TaskKeyEqual> task_register_;
 
-  // for deep learning framwork like tensorflow
-  // we will use async op to do the braodcast and allreduce
-  // so use a thread pool to do the op
-  ThreadPool async_queue_;
+  // timeline
+  std::shared_ptr<TimeLine> timeline_;
 
 #ifdef HAVE_NCCL
-  // create a map store the cuda event
-  std::unordered_map<std::string, cudaEvent_t> op_cuda_events_;
+  // every thread has a unique cuda event
+  // used by op to wait cuda kernel finish
+  std::mutex op_cuda_event_mutex_;
+  std::unordered_map<std::thread::id, cudaEvent_t> op_cuda_events_;
 #endif
 
 private:
@@ -68,7 +69,7 @@ private:
   // parse task from json str
   std::unordered_map<TaskType, std::vector<std::string>> parse_json_to_tasks(const std::string &json_str);
 
-  // insert a ready tensor and decide if it it ready to execute
+  // insert a ready tensor and decide whether it is ready to execute
   // only if all rank has ready to do the task
   bool check_execute_task(int rank, TaskType task_type, std::string name);
 
@@ -112,20 +113,23 @@ public:
   // insert a task to task queue
   void enqueue_task(Task &&t);
 
-  // put a task is async queue
-  void enqueue_job(std::function<void()> &&task);
+  // begin timeline evet
+  void begin_timeline_event(const std::string &name, const std::string &event);
+
+  // end timeline event
+  void end_timeline_event(const std::string &name, const std::string &event);
 
 #ifdef HAVE_NCCL
-  // the function in not thread-safe
-  cudaEvent_t obtain_cuda_event(const std::string &name);
+  // every thread has a unique cuda event
+  cudaEvent_t obtain_cuda_event();
 #endif
 
-  // check if already create a midway tesnor
-  // the function in not thread-safe
+  // check whether already create a midway tesnor
+  // it is thread safe
   std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType
-  // the function in not thread-safe
+  // it is thread safe
   std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
   
   // used for background_thread_ to do the task

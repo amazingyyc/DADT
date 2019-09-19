@@ -1,5 +1,5 @@
-#ifndef MPI_ALL_REDUCE_EXECUTOR_H
-#define MPI_ALL_REDUCE_EXECUTOR_H
+#ifndef MPI_CUDA_ALL_REDUCE_EXECUTOR_H
+#define MPI_CUDA_ALL_REDUCE_EXECUTOR_H
 
 #include <iostream>
 #include <unordered_map>
@@ -11,24 +11,33 @@
 
 namespace dadt {
 
-// MPIAllReduceExecutor will use CPU tensor as midway tesnor.
-// so before to do allreduce the data will copy to CPU tensor firstly no matter on GPU or CPU.
-class MPIAllReduceExecutor: public ITaskExecutor {
+// different with MPIAllReduceExecutor
+// MPICUDAAllReduceExecutor use GPU memory as midway tesnor
+// and must traing on GPU
+// and the mpi installed must GPU-aware
+// ref:https://devblogs.nvidia.com/introduction-cuda-aware-mpi/
+class MPICUDAAllReduceExecutor: public ITaskExecutor {
 private:
-  // MPIBroadCastExecutor will use CPU midway tensor
-  std::shared_ptr<Device> cpu_device_;
+  // MPICUDAAllReduceExecutor will GPU midway tensor
+  std::shared_ptr<Device> gpu_device_;
 
   // tensor_pool_ will used in multi-thread
   std::mutex pool_mutex_;
 
   // allreduce will reuse the tensor, so use a map to store it
+  // the tensor is GPU tensor
   std::unordered_map<std::string, std::shared_ptr<LockTensor>> tensor_pool_;
 
-  // memory buffer, fusion tensor
+  // fusion buffer
   MemoryBuffer buffer_;
 
+  // use a event wait cuda job finish
+  cudaEvent_t finish_event_;
+
 public:
-  MPIAllReduceExecutor(std::shared_ptr<Device> cpu_device, size_t buffer_size = 67108864);
+  MPICUDAAllReduceExecutor(std::shared_ptr<Device> gpu_device, size_t buffer_size = 67108864);
+
+  ~MPICUDAAllReduceExecutor();
 
   // whether already create a midway tensor
   std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) override;

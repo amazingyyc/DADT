@@ -1,23 +1,23 @@
-#include "definition.h"
-#include "nccl_all_reduce_executor.h"
+#include "mpi_cuda_all_reduce_executor.h"
 
 namespace dadt {
 
-NCCLAllReduceExecutor::NCCLAllReduceExecutor(std::shared_ptr<Device> gpu_device, size_t buffer_size)
-: gpu_device_(gpu_device), buffer_(gpu_device) {
+MPICUDAAllReduceExecutor::MPICUDAAllReduceExecutor(std::shared_ptr<Device> gpu_device, size_t buffer_size)
+  :gpu_device_(gpu_device), buffer_(gpu_device) {
   
+  // reserve enough buffer
   buffer_.reserve(buffer_size);
 
-  // use a event wait all reduce finish
+  // create a cuda event, to wait memory copy finish
   CUDA_CALL(cudaEventCreate(&finish_event_));
 }
 
-NCCLAllReduceExecutor::~NCCLAllReduceExecutor() {
+MPICUDAAllReduceExecutor::~MPICUDAAllReduceExecutor() {
   CUDA_CALL(cudaEventDestroy(finish_event_));
 }
 
-std::shared_ptr<LockTensor> NCCLAllReduceExecutor::obtain_midway_tensor(std::string name) {
-  // add lock
+// whether already create a midway tensor
+std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::obtain_midway_tensor(std::string name) {
   std::unique_lock<std::mutex> lock(pool_mutex_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
@@ -27,11 +27,10 @@ std::shared_ptr<LockTensor> NCCLAllReduceExecutor::obtain_midway_tensor(std::str
   return std::shared_ptr<LockTensor>();
 }
 
-std::shared_ptr<LockTensor> NCCLAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
   std::unique_lock<std::mutex> lock(pool_mutex_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
-    // have created the tensor, resue it
     auto tensor = tensor_pool_[name];
 
     ARGUMENT_CHECK(tensor->shape() == Shape(dims) && tensor->element_type() == element_type, "get tesnor error!");
@@ -51,23 +50,23 @@ std::shared_ptr<LockTensor> NCCLAllReduceExecutor::create_midway_tensor(std::str
   return tensor;
 }
 
-void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
+void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
   auto element_type = tasks[0].tensor->element_type();
 
-  ARGUMENT_CHECK(element_type.is<half>() || element_type.is<float>() || element_type.is<double>(), "NCCL all reduce only support half/float/double");
+  ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(), "mpi cuda all reduce executor only support float/double.");
 
   // check the element type and tensor device type
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "NCCL all reduce need tensor is GPU");
-    ARGUMENT_CHECK(element_type == task.tensor->element_type(), "NCCL all reduce only support half/float/double");
+    ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "mpi cuda all reduce executor need tensor is GPU");
+    ARGUMENT_CHECK(element_type == task.tensor->element_type(), "mpi cuda all reduce executor only support float/double");
   }
 
-  // begin allreduce timeline
+  // timeline
   if (context.enable_timeline.load()) {
     timeline->begin(tasks, kDoAllReduceEvent);
   }
 
-  // iterator all task collect it by the buffer size
+  // split task
   auto merge_units = split_tasks(tasks, buffer_.size());
 
   for (auto &unit : merge_units) {
@@ -90,19 +89,22 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
                                   context.cuda_stream));
 
         offset += tasks[i].tensor->num_bytes();
-
         count += tasks[i].tensor->size();
       }
 
       recvbuf = buffer_.ptr();
+
+      // wait memory copy finish or will not start mpi all reduce
+      CUDA_CALL(cudaEventRecord(finish_event_, context.cuda_stream));
+      CUDA_CALL(cudaEventSynchronize(finish_event_));
     }
 
-    // all reduce
-    auto nccl_dtype = nccl_data_type(context, tasks[unit.begin].tensor->element_type());
+    // use mpi to do all reduce
+    auto mpi_dtype = mpi_data_type(context, tasks[0].tensor->element_type());
 
-    NCCL_CALL(ncclAllReduce(recvbuf, recvbuf, count, nccl_dtype, ncclSum, context.nccl_comm, context.cuda_stream));
+    MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recvbuf, count, mpi_dtype, MPI_SUM, context.world_comm));
 
-    // copy back
+    // copy back to midway tensor
     if (unit.begin + 1 != unit.end) {
       size_t offset = 0;
 
@@ -115,13 +117,13 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
       
         offset += tasks[i].tensor->num_bytes();
       }
+
+      // copy back
+      CUDA_CALL(cudaEventRecord(finish_event_, context.cuda_stream));
+      CUDA_CALL(cudaEventSynchronize(finish_event_));
     }
 
-    // wait cuda stream finish
-    CUDA_CALL(cudaEventRecord(finish_event_, context.cuda_stream));
-    CUDA_CALL(cudaEventSynchronize(finish_event_));
-
-    // callback tensor
+    // midway tensor callback
     for (size_t i = unit.begin; i < unit.end; ++i) {
       tasks[i].done();
     }

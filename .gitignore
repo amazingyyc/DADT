@@ -11,3 +11,5 @@ test/minist/model1/
 test/mnist/MNIST-data/
 examples/mnist/MNIST-data/
 examples/bert/bert/__pycache__/
+examples/mnist/model1
+examples/mnist/model0

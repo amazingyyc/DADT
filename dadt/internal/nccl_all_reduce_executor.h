@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <unordered_map>
+#include <mutex>
 
 #include <cuda_runtime.h>
 #include <nccl.h>
@@ -13,23 +14,28 @@
 
 namespace dadt {
 
+// nccl all reduce
 class NCCLAllReduceExecutor: public ITaskExecutor {
 private:
+  // NCCLAllReduceExecutor will GPU midway tensor
+  std::shared_ptr<Device> gpu_device_;
+
+  // tensor_pool_ will used in multi-thread
+  std::mutex pool_mutex_;
+
   // nccl all reduce will resuse the midway tesnor
   std::unordered_map<std::string, std::shared_ptr<LockTensor>> tensor_pool_;
 
   // a gpu buffer
   MemoryBuffer buffer_;
 
-  // gpu device id
-  int gpu_device_id_;
-
   // use a event wait all reduce finish
   cudaEvent_t finish_event_;
 
 public:
   // gpu_device_id: gpu device
-  NCCLAllReduceExecutor(int gpu_device_id);
+  // buffer_size: buffer size
+  NCCLAllReduceExecutor(std::shared_ptr<Device> gpu_device, size_t buffer_size = 67108864);
 
   ~NCCLAllReduceExecutor();
 
@@ -38,7 +44,7 @@ public:
   
   std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
 
-  void operator()(const Context &context, const std::vector<Task> &tasks) override;
+  void operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) override;
 };
 
 }

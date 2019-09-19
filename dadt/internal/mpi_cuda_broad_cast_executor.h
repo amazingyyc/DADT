@@ -1,11 +1,9 @@
-#ifndef NCCL_BROAD_CAST_EXECUTOR_H
-#define NCCL_BROAD_CAST_EXECUTOR_H
+#ifndef MPI_CUDA_BROAD_CAST_EXECUTOR_H
+#define MPI_CUDA_BROAD_CAST_EXECUTOR_H
 
 #include <iostream>
 #include <unordered_map>
-
-#include <cuda_runtime.h>
-#include <nccl.h>
+#include  <mutex>
 
 #include "device.h"
 #include "task_executor.h"
@@ -13,27 +11,22 @@
 
 namespace dadt {
 
-class NCCLBroadCastExecutor: public ITaskExecutor {
+// MPICUDABroadCastExecutor will use MPI to do broad cast, and the mpi must be GPU-aware.
+class MPICUDABroadCastExecutor: public ITaskExecutor {
 private:
   // NCCLAllReduceExecutor will GPU midway tensor
   std::shared_ptr<Device> gpu_device_;
 
-  // use a event wait cuda stream finish
-  cudaEvent_t finish_event_;
-
 public:
-  // gpu_device_id: gpu device
-  NCCLBroadCastExecutor(std::shared_ptr<Device> gpu_device);
+  MPICUDABroadCastExecutor(std::shared_ptr<Device> gpu_device);
 
-  ~NCCLBroadCastExecutor();
+  ~MPICUDABroadCastExecutor();
 
   std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) override;
   
   std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
 
   void operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) override;
-};
-
 }
 
 #endif

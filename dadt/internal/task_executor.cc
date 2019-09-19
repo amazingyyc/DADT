@@ -35,7 +35,6 @@ MPI_Datatype ITaskExecutor::mpi_data_type(const Context &context, ElementType el
 }
 
 #ifdef HAVE_NCCL
-
 ncclDataType_t ITaskExecutor::nccl_data_type(const Context &context, ElementType element_type) {
   switch (element_type.id()) {
     case DType::Uint8:
@@ -60,7 +59,48 @@ ncclDataType_t ITaskExecutor::nccl_data_type(const Context &context, ElementType
       RUNTIME_ERROR("the dtype" << element_type.name() << " is not support in NCCL");
   }
 }
-
 #endif
+
+// split tasks to MergeUnit
+std::vector<MergeUnit> ITaskExecutor::split_tasks(const std::vector<Task> &tasks, size_t buffer_size) {
+  std::vector<MergeUnit> merge_units;
+
+  size_t tasks_size = tasks.size();
+
+  for (size_t i = 0; i < tasks_size; ) {
+    if (tasks[i].tensor->num_bytes() > buffer_size) {
+      MergeUnit unit;
+      unit.begin = i;
+      unit.end   = i + 1;
+
+      merge_units.emplace_back(unit);
+
+      i++;
+
+      continue;
+    }
+
+    size_t current_buffer_size = 0;
+    size_t j = i;
+
+    for (; j < tasks_size; ++j) {
+      if (current_buffer_size + tasks[j].tensor->num_bytes() > buffer_size) {
+        break;
+      }
+
+      current_buffer_size += tasks[j].tensor->num_bytes();
+    }
+
+    MergeUnit unit;
+    unit.begin = i;
+    unit.end   = j;
+
+    merge_units.emplace_back(unit);
+
+    i = j;
+  }
+
+  return std::move(merge_units);
+}
 
 }

@@ -1,6 +1,7 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
+#include <atomic>
 #include <mpi.h>
 
 #ifdef HAVE_NCCL
@@ -18,16 +19,22 @@ struct Config {
   // what kind broad cast executor used
   // 0: mpi
   // 1: nccl
-  int broad_cast_executor_type;
+  int broad_cast_executor;
 
   // what kind all reduce executor should be used
   // 0: mpi all reduce
   // 1: nccl all reduce
-  int all_reduce_executor_type;
+  // 2: mpi cuda all reduce
+  int all_reduce_executor;
+
+  // all reduce buffer size
+  size_t all_reduce_buffer_size;
+
+  // timeline file path
+  const char *timeline_path;
 };
 
-// context include the MPI context
-// and some config
+// context include the MPI nccl context
 struct Context {
   // the MPI word communicator include all process
   // the process size
@@ -76,6 +83,9 @@ struct Context {
 
   // thread cycle duration microsecond
   int64_t cycle_duration_us;
+
+  // whether enable timeline
+  std::atomic<bool> enable_timeline;
 };
 
 }

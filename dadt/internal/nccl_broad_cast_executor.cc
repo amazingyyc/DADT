@@ -3,7 +3,7 @@
 
 namespace dadt {
 
-NCCLBroadCastExecutor::NCCLBroadCastExecutor(int gpu_device_id): gpu_device_id_(gpu_device_id) {
+NCCLBroadCastExecutor::NCCLBroadCastExecutor(std::shared_ptr<Device> gpu_device): gpu_device_(gpu_device) {
   // use a event wait broad cast finish
   CUDA_CALL(cudaEventCreate(&finish_event_));
 }
@@ -17,19 +17,21 @@ std::shared_ptr<LockTensor> NCCLBroadCastExecutor::obtain_midway_tensor(std::str
 }
 
 std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  // create GPU tensor
-  auto device = get_gpu_device(gpu_device_id_);
-
   Shape shape(dims);
 
-  auto storage = TensorStorage::create(device, shape.size() * element_type.byte_width());
+  auto storage = TensorStorage::create(gpu_device_, shape.size() * element_type.byte_width());
 
-  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::InFill);
+  auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kInFetch);
 
   return tensor;
 }
 
-void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks) {
+void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
+  // begin broad cast timeline
+  if (context.enable_timeline.load()) {
+    timeline->begin(tasks, kDoBroadCastEvent);
+  }
+
   // for broad cast we will broad one by one
   for (auto &task : tasks) {
     ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "NCCLBroadCastExecutor only support GPU tensor");
@@ -45,6 +47,16 @@ void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector
   // wait cuda stream finish
   CUDA_CALL(cudaEventRecord(finish_event_, context.cuda_stream));
   CUDA_CALL(cudaEventSynchronize(finish_event_));
+
+  // callback tensor
+  for (auto &task : tasks) {
+    task.done();
+  }
+
+  // end broad cast timeline
+  if (context.enable_timeline.load()) {
+    timeline->end(tasks, kDoBroadCastEvent);
+  }
 }
 
 }
