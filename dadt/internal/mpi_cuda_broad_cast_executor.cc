@@ -45,8 +45,6 @@ void MPICUDABroadCastExecutor::operator()(const Context &context, const std::vec
       timeline->end(task.name, kDoBroadCastEvent);
     }
   }
-
-
 }
 
 }
