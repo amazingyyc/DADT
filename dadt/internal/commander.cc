@@ -124,38 +124,26 @@ void Commander::init_context(Config config) {
   // create broadcast executor
   if (0 == config.broad_cast_executor) {
     task_executors_[kBroadCastTaskType] = std::make_shared<MPIBroadCastExecutor>(cpu_device);
+#ifdef HAVE_NCCL
   } else if (1 == config.broad_cast_executor) {
-#ifdef HAVE_NCCL
     task_executors_[kBroadCastTaskType] = std::make_shared<NCCLBroadCastExecutor>(gpu_device);
-#else
-    RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
-#endif
   } else if (2 == config.broad_cast_executor) {
-#ifdef HAVE_NCCL
     task_executors_[kBroadCastTaskType] = std::make_shared<MPICUDABroadCastExecutor>(gpu_device);
-#else
-    RUNTIME_ERROR("compile without a GPU, can not create a MPI CUDA executor");
 #endif
   } else {
-    RUNTIME_ERROR("broad_cast_executor error, please set to be 0(MPI) or 1(NCCL) or 2(MPICUDA)");
+    RUNTIME_ERROR("broad_cast_executor is:" << config.broad_cast_executor << " not support, please set to be mpi, nccl (for GPU), mpicuda (for GPU).");
   }
 
   if (0 == config.all_reduce_executor) {
     task_executors_[kAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(cpu_device, config.all_reduce_buffer_size);
+#ifdef HAVE_NCCL
   } else if (1 == config.all_reduce_executor) {
-#ifdef HAVE_NCCL
     task_executors_[kAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
-#else
-    RUNTIME_ERROR("compile without a GPU, can not create a NCCL executor");
-#endif
   } else if (2 == config.all_reduce_executor) {
-#ifdef HAVE_NCCL
     task_executors_[kAllReduceTaskType] = std::make_shared<MPICUDAAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
-#else
-    RUNTIME_ERROR("compile without a GPU, can not create a MPI CUDA executor");
 #endif
   } else {
-    RUNTIME_ERROR("all_reduce_executor error, please set to be 0(MPI) or 1(NCCL) or 2(MPICUDA)");
+    RUNTIME_ERROR("all_reduce_executor is:" << config.all_reduce_executor << " not support, please set to be mpi, nccl (for GPU), mpicuda (for GPU).");
   }
 
   // whether enable timeline
