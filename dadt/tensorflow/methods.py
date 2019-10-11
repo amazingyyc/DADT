@@ -195,7 +195,7 @@ class DistributedOptimizer(tf.train.Optimizer):
           if grad is not None:
             if isinstance(grad, tf.IndexedSlices):
               grad = tf.convert_to_tensor(grad)
-            
+
             avg_grad = all_reduce(grad)
 
             if self._gradient_avg:
