@@ -3,8 +3,9 @@
 
 #include <iostream>
 #include <unordered_map>
+#include <unordered_set>
 
-#include "task.h
+#include "task.h"
 
 namespace dadt {
 
@@ -14,8 +15,8 @@ private:
   // all taskkey include in this group
   std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> aggregate_;
 
-  // waiting request
-  std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> waiting_;
+  // ready_ task
+  std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> ready_;
 
 public:
   Group();
@@ -23,6 +24,9 @@ public:
   Group(std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> aggregate);
 
   void insert_to_aggregate(TaskKey key);
+
+  // insert to ready set, return aggregate if all taskkey is ready in this group
+  std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> insert_to_ready(TaskKey key);
 };
 
 }

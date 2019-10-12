@@ -1,5 +1,6 @@
 #include <mpi.h>
 
+#include "definition.h"
 #include "context.h"
 #include "communicator.h"
 
@@ -118,14 +119,16 @@ std::vector<TaskCell> Communicator::parse_json_to_task_cells(const std::string &
 // update group and task cell
 void Communicator::update(Context context, const vector<Task> &ready_task) {
   // before update the task info, will remove unused broadcast task, because braoccast only used once at beginning.
-  // so avoid exhange to many message between ranks, remove some unused task type
+  // so avoid exhange to many message between ranks.
   std::vector<TaskCell> new_task_cells;
 
   for (auto &cell : task_cells_) {
     auto key = std::make_tuple(cell.task_type, cell.name);
 
     // do not keep kBroadCastTaskType
-    if (kBroadCastTaskType == cell.task_type && task_pool_.find(key) == task_pool_.end()) {
+    if (kBroadCastTaskType == cell.task_type 
+        && waiting_group_task_pool_.find(key) == waiting_group_task_pool_.end()
+        && waiting_request_pool_.find(key) == waiting_request_pool_.end()) {
       continue;
     }
 
@@ -161,6 +164,10 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
   auto task_cell_jsons = exchange_string(context.world_comm, context.world_rank, context.world_size, task_cell_json);
 
   for (auto &json : task_cell_jsons) {
+    if (json.empty()) {
+      continue;
+    }
+
     auto cells = parse_json_to_task_cells(json);
 
     for (auto &cell : cells) {
@@ -189,7 +196,7 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
   // the task cell in category_cells is sorted by time (time:get out of queue)
   for (auto &category : category_cells) {
     if (kShutDownTaskType == category.first || kBroadCastTaskType == category.first) {
-      // kShutDownTaskType and kBroadCastTaskType will not group
+      // kShutDownTaskType and kBroadCastTaskType group only include one taskkey
       for (auto &cell : category.second) {
         auto key = std::make_tuple(cell.task_type, cell.name);
 
@@ -245,6 +252,28 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
       RUNTIME_ERROR("task type is not support" << category.first);
     }
   }
+
+  // after update the Group has been empty, so should put waiting_group_pool_ in group again
+  // because the group has beeen changed, so maybe this time will get waiting_request_task
+  std::vector<TaskKey> should_request_tasks;
+
+  for (auto &item : waiting_group_pool_) {
+    auto grouped_task_keys = task_group_[item.first]->insert_to_ready(item.first);
+
+    for (auto &key : grouped_task_keys) {
+      should_request_tasks.emplace_back(key);
+    }
+  }
+
+  // for now should get task from waiting_group_pool_ put into waiting_request_pool_ by should_request_tasks
+  for (auto &key : should_request_tasks) {
+    ARGUMENT_CHECK(waiting_group_pool_.find(key) != waiting_group_pool_.end(), "waiting group do not have taskkey");
+    ARGUMENT_CHECK(waiting_request_pool_.find(key) == waiting_request_pool_.end(), "waiting_request_pool_ has already has the task");
+
+    // put into waiting_request_pool_
+    waiting_request_pool_[key] = waiting_group_pool_[key];
+    waiting_group_pool_.erase(key);
+  }
 }
 
 // at here will exchange with other rank get ready task
@@ -278,8 +307,95 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, &unknow_task_key, 1, MPI_UINT8_T, MPI_LOR, context.world_comm));
 
   if (0 != unknow_task_key) {
-    // for now we get some unknow task key, than we will exchange the taskkey between ranks.
+    // for now we get some unknow task key, than we will exchange the taskkey between ranks and update info.
+    update(context, ready_task);
   }
+
+  // for now the info has been updated.
+  // firstly put ready_task into waiting_group_pool_
+  for (auto &task : read_task) {
+    auto key = std::make_tuple(task.task_type, task.name);
+
+    ARGUMENT_CHECK(waiting_group_pool_.find(key) == waiting_group_pool_.end(), "waiting_group_pool_ has already include the task");
+
+    waiting_group_pool_[key] = task;
+  }
+
+  std::vector<TaskKey> should_request_tasks;
+
+  for (auto &task : read_task) {
+    auto key = std::make_tuple(task.task_type, task.name);
+
+    auto grouped_task_keys = task_group_[key]->insert_to_ready(key);
+
+    for (auto &t : grouped_task_keys) {
+      should_request_tasks.emplace_back(t);
+    }
+  }
+
+  for (auto &key : should_request_tasks) {
+    ARGUMENT_CHECK(waiting_group_pool_.find(key) != waiting_group_pool_.end(), "waiting group do not have taskkey");
+    ARGUMENT_CHECK(waiting_request_pool_.find(key) == waiting_request_pool_.end(), "waiting_request_pool_ has already has the task");
+
+    // put into waiting_request_pool_
+    waiting_request_pool_[key] = waiting_group_pool_[key];
+    waiting_group_pool_.erase(key);
+  }
+
+  // now all waiting request task has been put into waiting_request_pool_
+  // should talk with other rank to get real ready tasks
+  int total_task_count = task_cells_.size();
+  int byte_count = (total_task_count + 7) / 8;
+
+  uint8_t *recvbuf = malloc(sizeof(uint8_t) * byte_count);
+  memset(recvbuf, 0, byte_count);
+
+  // iterator waiting_request_pool_ set corresponding bit to be 1
+  for (auto &task : waiting_request_pool_) {
+    ARGUMENT_CHECK(task_id_.find(task.first) != task_id_.end(), "can not find id");
+
+    auto id = task_id_[task.first];
+
+    ARGUMENT_CHECK(0 <= id && id < total_task_count, "id out of range");
+
+    // set bit to be 1
+    int byte_index = id / 8;
+    int bit_offset = id % 8;
+
+    recvbuf[byte_index] |= (((uint8_t)1) << bit_offset);
+  }
+
+  // use allreduce to check whether other rank ready
+  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recvbuf, byte_count, MPI_UINT8_T, MPI_BAND, context.world_comm));
+
+  std::unordered_map<TaskType, std::vector<Task>> should_execute_tasks;
+
+  // iterator the recvbuf to check whether task should be execute
+  for (int id = 0; id < total_task_count; ++id) {
+    int byte_index = id / 8;
+    int bit_offset = id % 8;
+
+    if (0 == recvbuf[byte_index] & (((uint8_t)1) << bit_offset)) {
+      continue;
+    }
+
+    ARGUMENT_CHECK(id_task_.find(id) != id_task_.end(), "can not find id:" << id);
+
+    auto task_key = id_task_[id];
+
+    ARGUMENT_CHECK(waiting_request_pool_.find(task_key) != waiting_request_pool_.end(), "cann not find task:" << std::get<1>(task_key) << " in waiting_request_pool_.");
+
+    auto task = waiting_request_pool_[task_key];
+
+    should_execute_tasks[task.task_type].emplace_back(std::move(task));
+
+    waiting_request_pool_.erase(task_key);
+  }
+
+  free(recvbuf);
+
+  // the task in should_execute_tasks is sorted by id
+  return std::move(should_execute_tasks);
 }
 
 }
