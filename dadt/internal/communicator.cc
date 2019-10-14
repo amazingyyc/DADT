@@ -117,7 +117,7 @@ std::vector<TaskCell> Communicator::parse_json_to_task_cells(const std::string &
 }
 
 // update group and task cell
-void Communicator::update(Context context, const vector<Task> &ready_task) {
+void Communicator::update(Context context, const vector<Task> &ready_tasks) {
   // before update the task info, will remove unused broadcast task, because braoccast only used once at beginning.
   // so avoid exhange to many message between ranks.
   std::vector<TaskCell> new_task_cells;
@@ -136,8 +136,10 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
   }
 
   // insert ready task
-  for (auto &task : ready_task) {
+  // new_task_cells maybe has duplicate cell
+  for (auto &task : ready_tasks) {
     TaskCell cell;
+
     cell.task_type = task.task_type;
     cell.name = task.name;
 
@@ -150,14 +152,12 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
     new_task_cells.emplace_back(std::move(cell));
   }
 
-  // new_task_cells maybe has duplicate cell
-
   // clean old data
   task_cells_.clear();
-  task_id_.clear();
-  id_task_.clear();
+  task_key_id_.clear();
+  id_task_key_.clear();
   groups_.clear();
-  task_group_.clear();
+  task_key_group_.clear();
 
   // exchange task cell between ranks
   auto task_cell_json = dump_tasks_cells_to_json(new_task_cells);
@@ -174,11 +174,11 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
       auto key = std::make_tuple(cell.task_type, cell.name);
 
       // maybe include duplicate key
-      if (task_id_.find(key) == task_id_.end()) {
+      if (task_key_id_.find(key) == task_key_id_.end()) {
         int32_t id = task_cells_.size();
 
-        task_id_[key] = id;
-        id_task_[id] = key;
+        task_key_id_[key] = id;
+        id_task_key_[id] = key;
 
         task_cells_.emplace_back(cell);
       }
@@ -201,11 +201,11 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
         auto key = std::make_tuple(cell.task_type, cell.name);
 
         auto group = std::make_shared<Group>();
-        group->insert_to_aggregate(key);
 
+        group->insert_to_aggregate(key);
         groups_.emplace_back(group);
 
-        task_group_[key] = group;
+        task_key_group_[key] = group;
       }
     } else if (kAllReduceTaskType == category.first) {
       // all reduce will group by buffer
@@ -218,7 +218,7 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
           group->insert_to_aggregate(key);
           groups_.emplace_back(group);
 
-          task_group_[key] = group;
+          task_key_group_[key] = group;
 
           ++i;
 
@@ -239,7 +239,7 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
 
           group->insert_to_aggregate(key);
 
-          task_group_[key] = group;
+          task_key_group_[key] = group;
 
           current_buffer_size += category.second[j].num_bytes;
         }
@@ -253,12 +253,14 @@ void Communicator::update(Context context, const vector<Task> &ready_task) {
     }
   }
 
-  // after update the Group has been empty, so should put waiting_group_pool_ in group again
+  // after update, the Group has been empty, so should put waiting_group_pool_ in group again
   // because the group has beeen changed, so maybe this time will get waiting_request_task
   std::vector<TaskKey> should_request_tasks;
 
   for (auto &item : waiting_group_pool_) {
-    auto grouped_task_keys = task_group_[item.first]->insert_to_ready(item.first);
+    ARGUMENT_CHECK(task_key_group_.find(item.first) != task_key_group_.end(), "can not find task key in task_key_group_");
+
+    auto grouped_task_keys = task_key_group_[item.first]->insert_to_ready(item.first);
 
     for (auto &key : grouped_task_keys) {
       should_request_tasks.emplace_back(key);
@@ -281,6 +283,7 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
                                                                        const moodycamel::ConcurrentQueue<Task> task_queue) {
   std::vector<Task> ready_tasks;
 
+  // dequeue task from queue
   while (true) {
     Task t;
 
@@ -297,7 +300,7 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   for (auto &task : ready_tasks) {
     auto key = std::make_tuple(task.task_type, task.name);
 
-    if (task_id_.find(key) == task_id_.end()) {
+    if (task_key_id_.find(key) == task_key_id_.end()) {
       unknow_task_key = 1;
       break;
     }
@@ -308,25 +311,26 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
 
   if (0 != unknow_task_key) {
     // for now we get some unknow task key, than we will exchange the taskkey between ranks and update info.
-    update(context, ready_task);
+    update(context, ready_tasks);
   }
 
   // for now the info has been updated.
   // firstly put ready_task into waiting_group_pool_
-  for (auto &task : read_task) {
+  for (auto &task : ready_tasks) {
     auto key = std::make_tuple(task.task_type, task.name);
 
-    ARGUMENT_CHECK(waiting_group_pool_.find(key) == waiting_group_pool_.end(), "waiting_group_pool_ has already include the task");
+    ARGUMENT_CHECK(waiting_group_pool_.find(key) == waiting_group_pool_.end(), "waiting_group_pool_ has already include the task:" << task.name);
 
     waiting_group_pool_[key] = task;
   }
 
+  // check the task will be request with other rank
   std::vector<TaskKey> should_request_tasks;
 
-  for (auto &task : read_task) {
+  for (auto &task : ready_tasks) {
     auto key = std::make_tuple(task.task_type, task.name);
 
-    auto grouped_task_keys = task_group_[key]->insert_to_ready(key);
+    auto grouped_task_keys = task_key_group_[key]->insert_to_ready(key);
 
     for (auto &t : grouped_task_keys) {
       should_request_tasks.emplace_back(t);
@@ -334,8 +338,8 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   }
 
   for (auto &key : should_request_tasks) {
-    ARGUMENT_CHECK(waiting_group_pool_.find(key) != waiting_group_pool_.end(), "waiting group do not have taskkey");
-    ARGUMENT_CHECK(waiting_request_pool_.find(key) == waiting_request_pool_.end(), "waiting_request_pool_ has already has the task");
+    ARGUMENT_CHECK(waiting_group_pool_.find(key) != waiting_group_pool_.end(), "waiting group do not have task:" << std::get<1>(key));
+    ARGUMENT_CHECK(waiting_request_pool_.find(key) == waiting_request_pool_.end(), "waiting_request_pool_ has already has the task:" << std::get<1>(key));
 
     // put into waiting_request_pool_
     waiting_request_pool_[key] = waiting_group_pool_[key];
@@ -352,11 +356,11 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
 
   // iterator waiting_request_pool_ set corresponding bit to be 1
   for (auto &task : waiting_request_pool_) {
-    ARGUMENT_CHECK(task_id_.find(task.first) != task_id_.end(), "can not find id");
+    ARGUMENT_CHECK(task_key_id_.find(task.first) != task_key_id_.end(), "can not find task id");
 
-    auto id = task_id_[task.first];
+    auto id = task_key_id_[task.first];
 
-    ARGUMENT_CHECK(0 <= id && id < total_task_count, "id out of range");
+    ARGUMENT_CHECK(0 <= id && id < total_task_count, "task id out of range");
 
     // set bit to be 1
     int byte_index = id / 8;
@@ -375,13 +379,14 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
     int byte_index = id / 8;
     int bit_offset = id % 8;
 
-    if (0 == recvbuf[byte_index] & (((uint8_t)1) << bit_offset)) {
+    if (0 == (recvbuf[byte_index] & (((uint8_t)1) << bit_offset))) {
       continue;
     }
 
-    ARGUMENT_CHECK(id_task_.find(id) != id_task_.end(), "can not find id:" << id);
+    ARGUMENT_CHECK(id_task_key_.find(id) != id_task_key_.end(), "can not find id:" << id);
 
-    auto task_key = id_task_[id];
+    // get task key
+    auto task_key = id_task_key_[id];
 
     ARGUMENT_CHECK(waiting_request_pool_.find(task_key) != waiting_request_pool_.end(), "cann not find task:" << std::get<1>(task_key) << " in waiting_request_pool_.");
 

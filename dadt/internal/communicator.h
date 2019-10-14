@@ -23,19 +23,20 @@ struct TaskCell {
 class Communicator {
 private:
   // use a vector contain the task cell, sort by dequeue from queue
+  // a taskcell include a num_bytes used for grouping
   std::vector<TaskCell> task_cells_;
 
   // every task will assign a id
-  std::unordered_map<TaskKey, int32_t, TaskKeyHash, TaskKeyEqual> task_id_;
+  std::unordered_map<TaskKey, int32_t, TaskKeyHash, TaskKeyEqual> task_key_id_;
 
   // id-task map
-  std::unordered_map<int32_t, TaskKey> id_task_;
+  std::unordered_map<int32_t, TaskKey> id_task_key_;
 
   // the taskkey will assign to different group
   std::vector<std::shared_ptr<Group>> groups_;
 
   // task-group map
-  std::unordered_map<TaskKey, std::shared_ptr<Group>, TaskKeyHash, TaskKeyEqual> task_group_;
+  std::unordered_map<TaskKey, std::shared_ptr<Group>, TaskKeyHash, TaskKeyEqual> task_key_group_;
 
   // wait for Group task
   // when get task from queue the task will put into waiting_group_pool_
@@ -48,6 +49,7 @@ private:
   std::unordered_map<TaskKey, Task, TaskKeyHash, TaskKeyEqual> waiting_request_pool_;
 
 private:
+  // exchange string between ranks
   std::vector<std::string> exchange_string(MPI_Comm mpi_comm, int rank, int size, std::string &str);
 
   // format tskcell to string

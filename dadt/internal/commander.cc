@@ -120,6 +120,7 @@ void Commander::init_context(Config config) {
 
   // convert to microsecond
   context_.cycle_duration_us = config.cycle_duration_ms * 1000;
+  context_.all_reduce_buffer_size = config.all_reduce_buffer_size;
 
   // create broadcast executor
   if (0 == config.broad_cast_executor) {
@@ -135,12 +136,12 @@ void Commander::init_context(Config config) {
   }
 
   if (0 == config.all_reduce_executor) {
-    task_executors_[kAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(cpu_device, config.all_reduce_buffer_size);
+    task_executors_[kAllReduceTaskType] = std::make_shared<MPIAllReduceExecutor>(cpu_device, context_.all_reduce_buffer_size);
 #ifdef HAVE_NCCL
   } else if (1 == config.all_reduce_executor) {
-    task_executors_[kAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
+    task_executors_[kAllReduceTaskType] = std::make_shared<NCCLAllReduceExecutor>(gpu_device, context_.all_reduce_buffer_size);
   } else if (2 == config.all_reduce_executor) {
-    task_executors_[kAllReduceTaskType] = std::make_shared<MPICUDAAllReduceExecutor>(gpu_device, config.all_reduce_buffer_size);
+    task_executors_[kAllReduceTaskType] = std::make_shared<MPICUDAAllReduceExecutor>(gpu_device, context_.all_reduce_buffer_size);
 #endif
   } else {
     RUNTIME_ERROR("all_reduce_executor is:" << config.all_reduce_executor << " not support, please set to be mpi, nccl (for GPU), mpicuda (for GPU).");

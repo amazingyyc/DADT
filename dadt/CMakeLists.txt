@@ -4,6 +4,7 @@ project(dadt LANGUAGES CXX)
 
 set(DADT_HEADER_FILES
   internal/commander.h
+  internal/communicator.h
   internal/context.h
   internal/device.h
   internal/definition.h
@@ -27,6 +28,7 @@ set(DADT_HEADER_FILES
 
 set(DADT_SRC_FILES
   internal/commander.cc
+  internal/communicator.cc
   internal/device.cc
   internal/lock_tensor.cc
   internal/memory_buffer.cc

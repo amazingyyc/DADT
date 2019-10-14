@@ -87,6 +87,9 @@ struct Context {
 
   // whether enable timeline
   std::atomic<bool> enable_timeline;
+
+  // the allreduce buffer size
+  size_t all_reduce_buffer_size;
 };
 
 }
