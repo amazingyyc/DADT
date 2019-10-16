@@ -1,7 +1,11 @@
+#include <memory>
 #include <mpi.h>
+
+#include "json11.hpp"
 
 #include "definition.h"
 #include "context.h"
+#include "lock_tensor.h"
 #include "communicator.h"
 
 namespace dadt {
@@ -80,10 +84,9 @@ std::string Communicator::dump_tasks_cells_to_json(const std::vector<TaskCell> &
     values.emplace_back(obj);
   }
 
-  std::string json_str;
-  json11::dump(values, json_str);
+  json11::Json jsonValue(values);
 
-  return std::move(json_str);
+  return std::move(jsonValue.dump());
 }
 
 // parse task from json
@@ -117,7 +120,7 @@ std::vector<TaskCell> Communicator::parse_json_to_task_cells(const std::string &
 }
 
 // update group and task cell
-void Communicator::update(Context context, const vector<Task> &ready_tasks) {
+void Communicator::update(const Context &context, const std::vector<Task> &ready_tasks) {
   // before update the task info, will remove unused broadcast task, because braoccast only used once at beginning.
   // so avoid exhange to many message between ranks.
   std::vector<TaskCell> new_task_cells;
@@ -127,7 +130,7 @@ void Communicator::update(Context context, const vector<Task> &ready_tasks) {
 
     // do not keep kBroadCastTaskType
     if (kBroadCastTaskType == cell.task_type 
-        && waiting_group_task_pool_.find(key) == waiting_group_task_pool_.end()
+        && waiting_group_pool_.find(key) == waiting_group_pool_.end()
         && waiting_request_pool_.find(key) == waiting_request_pool_.end()) {
       continue;
     }
@@ -210,7 +213,7 @@ void Communicator::update(Context context, const vector<Task> &ready_tasks) {
     } else if (kAllReduceTaskType == category.first) {
       // all reduce will group by buffer
       for (size_t i = 0; i < category.second.size(); ) {
-        if (category.second[i].num_bytes >= context.all_reduce_buffer_size) {
+        if (category.second[i].num_bytes >= context.group_buffer_size) {
           auto key = std::make_tuple(category.second[i].task_type, category.second[i].name);
 
           auto group = std::make_shared<Group>();
@@ -231,11 +234,11 @@ void Communicator::update(Context context, const vector<Task> &ready_tasks) {
         size_t j = i;
 
         for (; j < category.second.size(); ++j) {
-          if (current_buffer_size + category.second[j].num_bytes > context.all_reduce_buffer_size) {
+          if (current_buffer_size + category.second[j].num_bytes > context.group_buffer_size) {
             break;
           }
 
-          auto key = std::make_tuple(std::make_tuple(category.second[j].task_type, category.second[j].name));
+          auto key = std::make_tuple(category.second[j].task_type, category.second[j].name);
 
           group->insert_to_aggregate(key);
 
@@ -280,14 +283,13 @@ void Communicator::update(Context context, const vector<Task> &ready_tasks) {
 
 // at here will exchange with other rank get ready task
 std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Context &context, 
-                                                                       const moodycamel::ConcurrentQueue<Task> task_queue) {
+                                                                       moodycamel::ConcurrentQueue<Task> &task_queue) {
   std::vector<Task> ready_tasks;
 
   // dequeue task from queue
   while (true) {
     Task t;
-
-    if (task_queue.dequeue(t)) {
+    if (task_queue.try_dequeue(t)) {
       ready_tasks.emplace_back(std::move(t));
     } else {
       break;
@@ -351,7 +353,15 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   int total_task_count = task_cells_.size();
   int byte_count = (total_task_count + 7) / 8;
 
-  uint8_t *recvbuf = malloc(sizeof(uint8_t) * byte_count);
+  if (byte_count > recvbuf_size) {
+    if (nullptr != recvbuf) {
+      free(recvbuf);
+    }
+
+    recvbuf_size = byte_count;
+    recvbuf = (uint8_t*)malloc(sizeof(uint8_t) * recvbuf_size);
+  }
+
   memset(recvbuf, 0, byte_count);
 
   // iterator waiting_request_pool_ set corresponding bit to be 1
@@ -396,8 +406,6 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
 
     waiting_request_pool_.erase(task_key);
   }
-
-  free(recvbuf);
 
   // the task in should_execute_tasks is sorted by id
   return std::move(should_execute_tasks);

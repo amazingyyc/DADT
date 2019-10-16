@@ -224,6 +224,6 @@ setup(
     author_email='amazingyyc@outlook.com',
     zip_safe=False,
     packages=['dadt', 'dadt/tensorflow'],
-    ext_modules=[CMakeExtension(name='dadt', build_for_nccl=False, cmake_dir='.')],
+    ext_modules=[CMakeExtension(name='dadt', build_for_nccl=True, cmake_dir='.')],
     cmdclass={'build_ext' : CMakeBuildExt},
 )

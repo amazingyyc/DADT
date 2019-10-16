@@ -19,17 +19,20 @@ struct Config {
   // what kind broad cast executor used
   // 0: mpi
   // 1: nccl
-  // 2:mpi cuda broadcast
+  // 2: mpicuda broadcast
   int broad_cast_executor;
 
   // what kind all reduce executor should be used
   // 0: mpi all reduce
   // 1: nccl all reduce
-  // 2: mpi cuda all reduce
+  // 2: mpicuda all reduce
   int all_reduce_executor;
 
   // all reduce buffer size
   size_t all_reduce_buffer_size;
+
+  // use group_buffer_size to group the tensor
+  size_t group_buffer_size;
 
   // timeline file path
   const char *timeline_path;
@@ -85,11 +88,14 @@ struct Context {
   // thread cycle duration microsecond
   int64_t cycle_duration_us;
 
-  // whether enable timeline
-  std::atomic<bool> enable_timeline;
-
   // the allreduce buffer size
   size_t all_reduce_buffer_size;
+
+  // use group_buffer_size to group the tensor
+  size_t group_buffer_size;
+
+  // whether enable timeline
+  std::atomic<bool> enable_timeline;
 };
 
 }

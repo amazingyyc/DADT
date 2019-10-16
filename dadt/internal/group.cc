@@ -6,14 +6,18 @@ namespace dadt {
 Group::Group() {
 }
 
-Group::Group(std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> aggregate): aggregate_(std::move(aggregate)) {
+Group::Group(TaskKeySet aggregate): aggregate_(std::move(aggregate)) {
+}
+
+const TaskKeySet& Group::aggregate() {
+  return aggregate_;
 }
 
 void Group::insert_to_aggregate(TaskKey key) {
   aggregate_.insert(key);
 }
 
-std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> Group::insert_to_ready(TaskKey key) {
+TaskKeySet Group::insert_to_ready(TaskKey key) {
   ARGUMENT_CHECK(aggregate_.find(key) != aggregate_.end(), "the task not in this the group");
   ARGUMENT_CHECK(ready_.find(key) == ready_.end(), "the task has already in.");
 
@@ -25,7 +29,7 @@ std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual> Group::insert_to_ready(Ta
     return aggregate_;
   }
 
-  return std::unordered_set<TaskKey, TaskKeyHash, TaskKeyEqual>();
+  return TaskKeySet();
 }
 
 }

@@ -28,6 +28,7 @@ class Config(ctypes.Structure):
               ("broad_cast_executor", ctypes.c_int),
               ("all_reduce_executor", ctypes.c_int),
               ("all_reduce_buffer_size", ctypes.c_size_t),
+              ("group_buffer_size", ctypes.c_size_t),
               ("timeline_path", ctypes.c_char_p)]
 
 if 'Windows' == platform.system():
@@ -57,6 +58,7 @@ def init(cycle_duration_ms=5,
          broad_cast_executor='nccl',
          all_reduce_executor='nccl', 
          all_reduce_buffer_size=67108864,
+         group_buffer_size=0,
          timeline_path=None):
   broad_cast_executor = broad_cast_executor.lower()
   all_reduce_executor = all_reduce_executor.lower()
@@ -85,10 +87,11 @@ def init(cycle_duration_ms=5,
     timeline_path_p = ctypes.c_char_p(timeline_path.encode('utf-8'))
   
   config = Config(cycle_duration_ms=cycle_duration_ms,
-                    broad_cast_executor=broad_cast_executor_type,
-                    all_reduce_executor=all_reduce_executor_type,
-                    all_reduce_buffer_size=all_reduce_buffer_size,
-                    timeline_path=timeline_path_p)
+                  broad_cast_executor=broad_cast_executor_type,
+                  all_reduce_executor=all_reduce_executor_type,
+                  all_reduce_buffer_size=all_reduce_buffer_size,
+                  group_buffer_size=group_buffer_size,
+                  timeline_path=timeline_path_p)
 
   dadt_native_module.init(config)
 

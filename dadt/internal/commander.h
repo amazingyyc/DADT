@@ -13,6 +13,7 @@
 #include "context.h"
 #include "task_executor.h"
 #include "thread_pool.h"
+#include "communicator.h"
 #include "timeline.h"
 
 namespace dadt {
@@ -23,11 +24,10 @@ private:
   // context
   Context context_;
 
-  // a map store the task_type with corresponding task executor
-  std::unordered_map<TaskType, std::shared_ptr<ITaskExecutor>> task_executors_;
-
   // a flag represent whether dadt finish initizlized
   std::atomic<bool> initialized_;
+  // a map store the task_type with corresponding task executor
+  std::unordered_map<TaskType, std::shared_ptr<ITaskExecutor>> task_executors_;
 
   // a task queue, will accept the message and a background will get the message and do the task
   moodycamel::ConcurrentQueue<Task> task_queue_;
@@ -35,12 +35,8 @@ private:
   // a background thread will loop take task from message_queue_ to do the task
   std::thread worker_thread_;
 
-  // after take the task from queue, it may not execute right now becuase some other process may not put same some task
-  // so put it in register for tmp
-  std::unordered_map<TaskKey, Task, TaskKeyHash, TaskKeyEqual> task_pool_;
-
-  // this map used for record how many process has put same task in queue
-  std::unordered_map<TaskKey, std::unordered_set<int>, TaskKeyHash, TaskKeyEqual> task_register_;
+  // communicator
+  Communicator communicator_;
 
   // timeline
   std::shared_ptr<TimeLine> timeline_;
@@ -58,23 +54,6 @@ private:
 
   // clean context, call in the same thread with init_context
   void clear_context();
-
-  // exchange string with special MPI_Comm
-  // return is a string array corresponding the rank index
-  std::vector<std::string> exchange_string(MPI_Comm mpi_comm, int rank, int size, std::string &str); 
-
-  // formate a category task to json str
-  std::string dump_tasks_to_json(const std::unordered_map<TaskType, std::vector<std::string>> &category_tasks);
-
-  // parse task from json str
-  std::unordered_map<TaskType, std::vector<std::string>> parse_json_to_tasks(const std::string &json_str);
-
-  // insert a ready tensor and decide whether it is ready to execute
-  // only if all rank has ready to do the task
-  bool check_execute_task(int rank, TaskType task_type, std::string name);
-
-  // exchange the tasks with each process
-  std::unordered_map<TaskType, std::vector<Task>> exchange_execute_tasks(std::vector<Task> &tasks);
 
   // loop to get task from queue and do the task
   // return wheter shut down
