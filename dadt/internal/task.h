@@ -5,11 +5,11 @@
 #include <functional>
 #include <memory>
 
+#include "types.h"
+
 namespace dadt {
 
 class LockTensor;
-
-typedef int TaskType;
 
 // define the task type for now only support allreduce, broadcast
 // shutdown is a special task type use for shut down whole system
@@ -34,22 +34,13 @@ struct Task {
   std::function<void()> done;
 };
 
-// define a hash map key
-typedef std::tuple<TaskType, std::string> TaskKey;
+// a cell include task type, name, and corresponding tesnor size
+struct TaskCell {
+  TaskType task_type;
 
-struct TaskKeyHash {
-  std::size_t operator()(const TaskKey& k) const {
-    auto task_type = std::get<0>(k);
-    auto name      = std::get<1>(k);
+  std::string name;
 
-    return task_type ^ std::hash<std::string>{}(name);
-  }
-};
-
-struct TaskKeyEqual {
-  bool operator () (const TaskKey &lhs, const TaskKey &rhs) const {
-    return std::get<0>(lhs) == std::get<0>(rhs) && std::get<1>(lhs) == std::get<1>(rhs);
-  }
+  int num_bytes;
 };
 
 }

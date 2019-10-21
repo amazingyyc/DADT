@@ -4,10 +4,12 @@ project(dadt LANGUAGES CXX)
 
 set(DADT_HEADER_FILES
   internal/commander.h
+  internal/communicator.h
   internal/context.h
   internal/device.h
   internal/definition.h
   internal/element_type.h
+  internal/group.h
   internal/lock_tensor.h
   internal/memory_buffer.h
   internal/mpi_all_reduce_executor.h
@@ -27,7 +29,9 @@ set(DADT_HEADER_FILES
 
 set(DADT_SRC_FILES
   internal/commander.cc
+  internal/communicator.cc
   internal/device.cc
+  internal/group.cc
   internal/lock_tensor.cc
   internal/memory_buffer.cc
   internal/mpi_all_reduce_executor.cc

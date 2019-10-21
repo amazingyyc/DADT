@@ -68,7 +68,7 @@ std::vector<MergeUnit> ITaskExecutor::split_tasks(const std::vector<Task> &tasks
   size_t tasks_size = tasks.size();
 
   for (size_t i = 0; i < tasks_size; ) {
-    if (tasks[i].tensor->num_bytes() > buffer_size) {
+    if (tasks[i].tensor->num_bytes() >= buffer_size) {
       MergeUnit unit;
       unit.begin = i;
       unit.end   = i + 1;
