@@ -10,6 +10,17 @@
 
 namespace dadt {
 
+Communicator::Communicator() {
+}
+
+Communicator::~Communicator() {
+  if (nullptr != recvbuf) {
+    free(recvbuf);
+  }
+
+  recvbuf = nullptr;
+}
+
 // exchange string with special MPI_Comm
 // return is a string array corresponding the rank index
 std::vector<std::string> Communicator::exchange_string(MPI_Comm mpi_comm, int rank, int size, std::string &str) {
@@ -121,7 +132,7 @@ std::vector<TaskCell> Communicator::parse_json_to_task_cells(const std::string &
 
 // update group and task cell
 void Communicator::update(const Context &context, const std::vector<Task> &ready_tasks) {
-  // before update the task info, will remove unused broadcast task, because braoccast only used once at beginning.
+  // before update the task info, will remove unused broadcast task, because broadcast only used once at beginning.
   // so avoid exhange to many message between ranks.
   std::vector<TaskCell> new_task_cells;
 

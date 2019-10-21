@@ -26,6 +26,7 @@ private:
 
   // a flag represent whether dadt finish initizlized
   std::atomic<bool> initialized_;
+
   // a map store the task_type with corresponding task executor
   std::unordered_map<TaskType, std::shared_ptr<ITaskExecutor>> task_executors_;
 
@@ -103,7 +104,7 @@ public:
   cudaEvent_t obtain_cuda_event();
 #endif
 
-  // check whether already create a midway tesnor
+  // check whether already create a midway tensor
   // it is thread safe
   std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name);
 

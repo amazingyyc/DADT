@@ -342,7 +342,7 @@ bool Commander::worker_do_task() {
   }
 
   // for now every process have some task that will be executed
-  // step3, sort the the tasks by TaskType
+  // sort the the tasks by TaskType
   std::vector<TaskType> execute_task_types;
   for (auto &item : execute_tasks) {
     execute_task_types.emplace_back(item.first);

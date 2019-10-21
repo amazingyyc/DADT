@@ -12,10 +12,10 @@
 
 namespace dadt {
 
-// the communicator will impellemt bitAllReduce and Group ref paper: EXASCALE DEEP LEARNING FOR SCIENTIFIC INVERSE PROBLEMS
+// the communicator will impellemt bitAllReduce and Group, ref paper: EXASCALE DEEP LEARNING FOR SCIENTIFIC INVERSE PROBLEMS
 class Communicator {
 private:
-  // use a vector contain the task cell, sort by dequeue from queue
+  // use a vector contain the task cell
   // a taskcell include a num_bytes used for grouping
   std::vector<TaskCell> task_cells_;
 
@@ -58,6 +58,9 @@ private:
   void update(const Context &context, const std::vector<Task> &ready_task);
 
 public:
+  Communicator();
+
+  ~Communicator();
 
   // at here will exchange with other rank get ready task
   std::unordered_map<TaskType, std::vector<Task>> exchange(const Context &context, 
