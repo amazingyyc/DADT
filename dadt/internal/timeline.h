@@ -17,9 +17,10 @@ namespace dadt {
 const std::string kWaitForFetchEvent    = "WaitForFetch";
 const std::string kCopyToMidWayEvent    = "CopyToMidWay";
 const std::string kStayInTaskQueueEvent = "StayInQueue";
-const std::string kStayInTaskPoolEvent  = "StayInTaskPool";
-const std::string kDoAllReduceEvent     = "DoAllReduce";
-const std::string kDoBroadCastEvent     = "DoBroadCast";
+const std::string kStayInWaitingGroupPoolEvent   = "StayInWaitingGroupPool";
+const std::string kStayInWaitingRequestPoolEvent = "StayInWaitingRequestPool";
+const std::string kDoAllReduceEvent = "DoAllReduce";
+const std::string kDoBroadCastEvent = "DoBroadCast";
 
 // s special event indicate in training but not cccurate
 const std::string kInTrainingEvent = "InTraining";
@@ -69,6 +70,10 @@ public:
   
   //a lot of task end
   void end(const std::vector<Task> &tasks, const std::string& event);
+
+  void begin(const std::vector<TaskKey> &task_keys, const std::string& event);
+
+  void end(const std::vector<TaskKey> &task_keys, const std::string& event);
 };
 
 }

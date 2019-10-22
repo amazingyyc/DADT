@@ -56,6 +56,19 @@ def find_file_in_folders(folders, name):
 
   return None
 
+def find_tensorflow_lib_paths(folder):
+  lib_paths = []
+
+  for file_name in os.listdir(folder):
+    if os.path.isfile(os.path.join(folder, file_name)):
+      if file_name.endswith('.so') or file_name.endswith('.so.1'):
+        lib_paths.append(os.path.join(folder, file_name))
+
+  if 0 == len(lib_paths):
+    raise ValueError('can not find tensorflow libs in folder:' + folder)
+
+  return lib_paths
+
 class CMakeExtension(Extension):
   def __init__(self, name, build_for_nccl = False, cmake_dir=''):
     Extension.__init__(self, name, sources=[])
@@ -120,10 +133,8 @@ class CMakeBuildExt(build_ext):
     # tf lib folder
     tf_lib_folder = tf.sysconfig.get_lib()
 
-    tf_lib_paths = [os.path.join(tf_lib_folder, file) \
-                        for file in os.listdir(tf_lib_folder) \
-                        if os.path.isfile(os.path.join(tf_lib_folder, file)) and \
-                           os.path.splitext(file)[-1] in lib_suffix]
+    tf_lib_paths = find_tensorflow_lib_paths(tf_lib_folder)
+
     # set tensorflow lib
     cmake_args.append('-DTENSORFLOW_LIB_PATHS=' + ';'.join(tf_lib_paths))
     

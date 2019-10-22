@@ -9,6 +9,7 @@
 #include "types.h"
 #include "task.h"
 #include "group.h"
+#include "timeline.h"
 
 namespace dadt {
 
@@ -55,7 +56,7 @@ private:
   std::vector<TaskCell> parse_json_to_task_cells(const std::string &json_str);
 
   // update group and task cell
-  void update(const Context &context, const std::vector<Task> &ready_task);
+  void update(const Context &context, const std::vector<Task> &ready_task, std::shared_ptr<TimeLine> timeline);
 
 public:
   Communicator();
@@ -64,7 +65,8 @@ public:
 
   // at here will exchange with other rank get ready task
   std::unordered_map<TaskType, std::vector<Task>> exchange(const Context &context, 
-                                                           moodycamel::ConcurrentQueue<Task> &task_queue);
+                                                           moodycamel::ConcurrentQueue<Task> &task_queue,
+                                                           std::shared_ptr<TimeLine> timeline);
 };
 
 }

@@ -76,7 +76,7 @@ std::vector<std::string> Communicator::exchange_string(MPI_Comm mpi_comm, int ra
   return std::move(ret);
 }
 
-// format tskcell to string
+// format taskcell to string
 std::string Communicator::dump_tasks_cells_to_json(const std::vector<TaskCell> &task_cells) {
   // format:
   // [
@@ -131,7 +131,7 @@ std::vector<TaskCell> Communicator::parse_json_to_task_cells(const std::string &
 }
 
 // update group and task cell
-void Communicator::update(const Context &context, const std::vector<Task> &ready_tasks) {
+void Communicator::update(const Context &context, const std::vector<Task> &ready_tasks, std::shared_ptr<TimeLine> timeline) {
   // before update the task info, will remove unused broadcast task, because broadcast only used once at beginning.
   // so avoid exhange to many message between ranks.
   std::vector<TaskCell> new_task_cells;
@@ -290,11 +290,18 @@ void Communicator::update(const Context &context, const std::vector<Task> &ready
     waiting_request_pool_[key] = waiting_group_pool_[key];
     waiting_group_pool_.erase(key);
   }
+
+  // timeline
+  if (context.enable_timeline.load()) {
+    timeline->end(should_request_tasks, kStayInWaitingGroupPoolEvent);
+    timeline->begin(should_request_tasks, kStayInWaitingRequestPoolEvent);
+  }
 }
 
 // at here will exchange with other rank get ready task
 std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Context &context, 
-                                                                       moodycamel::ConcurrentQueue<Task> &task_queue) {
+                                                                       moodycamel::ConcurrentQueue<Task> &task_queue,
+                                                                       std::shared_ptr<TimeLine> timeline) {
   std::vector<Task> ready_tasks;
 
   // dequeue task from queue
@@ -305,6 +312,11 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
     } else {
       break;
     }
+  }
+
+  // outof queue timeline
+  if (context.enable_timeline.load()) {
+    timeline->end(ready_tasks, kStayInTaskQueueEvent);
   }
 
   // after get task from queue, will check whether the taskkey in the map, if not will communicator with other rank to exchange new taskkey
@@ -324,7 +336,7 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
 
   if (0 != unknow_task_key) {
     // for now we get some unknow task key, than we will exchange the taskkey between ranks and update info.
-    update(context, ready_tasks);
+    update(context, ready_tasks, timeline);
   }
 
   // for now the info has been updated.
@@ -335,6 +347,11 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
     ARGUMENT_CHECK(waiting_group_pool_.find(key) == waiting_group_pool_.end(), "waiting_group_pool_ has already include the task:" << task.name);
 
     waiting_group_pool_[key] = task;
+  }
+
+  // StayInWaitingGroupPool timeline
+  if (context.enable_timeline.load()) {
+    timeline->begin(ready_tasks, kStayInWaitingGroupPoolEvent);
   }
 
   // check the task will be request with other rank
@@ -357,6 +374,12 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
     // put into waiting_request_pool_
     waiting_request_pool_[key] = waiting_group_pool_[key];
     waiting_group_pool_.erase(key);
+  }
+
+  // timeline
+  if (context.enable_timeline.load()) {
+    timeline->end(should_request_tasks, kStayInWaitingGroupPoolEvent);
+    timeline->begin(should_request_tasks, kStayInWaitingRequestPoolEvent);
   }
 
   // now all waiting request task has been put into waiting_request_pool_
@@ -416,6 +439,13 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
     should_execute_tasks[task.task_type].emplace_back(std::move(task));
 
     waiting_request_pool_.erase(task_key);
+  }
+
+  // outof waiting request
+  if (context.enable_timeline.load()) {
+    for (auto &tasks : should_execute_tasks) {
+      timeline->end(tasks.second, kStayInWaitingRequestPoolEvent);
+    }
   }
 
   // the task in should_execute_tasks is sorted by id

@@ -115,4 +115,30 @@ void TimeLine::end(const std::vector<Task> &tasks, const std::string& event_name
   }
 }
 
+void TimeLine::begin(const std::vector<TaskKey> &task_keys, const std::string& event_name) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  std::string cat("PERF");
+  std::string ph("B");
+
+  auto ts = get_current_microseconds();
+
+  for (auto &key : task_keys) {
+    write(event_name, cat, ph, std::get<1>(key), ts);
+  }
+}
+
+void TimeLine::end(const std::vector<TaskKey> &task_keys, const std::string& event_name) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  std::string cat("PERF");
+  std::string ph("E");
+
+  auto ts = get_current_microseconds();
+
+    for (auto &key : task_keys) {
+    write(event_name, cat, ph, std::get<1>(key), ts);
+  }
+}
+
 }

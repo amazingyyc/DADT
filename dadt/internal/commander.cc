@@ -272,7 +272,7 @@ void Commander::local_barrier() {
 void Commander::enqueue_task(Task &&t) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-    // timeline
+  // timeline
   if (context_.enable_timeline.load()) {
     timeline_->begin(t.name, kStayInTaskQueueEvent);
   }
@@ -331,7 +331,7 @@ std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
 // get the message from the queue and allreduce cross all node
 bool Commander::worker_do_task() {
   // get should execute task
-  auto execute_tasks = communicator_.exchange(context_, task_queue_);
+  auto execute_tasks = communicator_.exchange(context_, task_queue_, timeline_);
 
   // check whether shutdown
   bool shutdown = false;
