@@ -5,20 +5,16 @@
 
 #include "definition.h"
 #include "context.h"
+#include "device.h"
 #include "lock_tensor.h"
 #include "communicator.h"
 
 namespace dadt {
 
-Communicator::Communicator() {
+Communicator::Communicator(): recv_buffer(get_cpu_device()) {
 }
 
 Communicator::~Communicator() {
-  if (nullptr != recvbuf) {
-    free(recvbuf);
-  }
-
-  recvbuf = nullptr;
 }
 
 // exchange string with special MPI_Comm
@@ -37,9 +33,10 @@ std::vector<std::string> Communicator::exchange_string(MPI_Comm mpi_comm, int ra
     total_length += i;
   }
 
-  char* all_gather_str_c = (char*)malloc(total_length + 1);
-  int *recvcounts = (int*)malloc(sizeof(int) * size);
-  int *displs = (int*)malloc(sizeof(int) * size);
+  // allocator memory to store all gather string
+  std::string all_gather_str(total_length, ' ');
+  std::vector<int> recvcounts(size);
+  std::vector<int> displs(size);
 
   for (int i = 0; i < size; ++i) {
     recvcounts[i] = str_length[i];
@@ -52,16 +49,7 @@ std::vector<std::string> Communicator::exchange_string(MPI_Comm mpi_comm, int ra
   }
 
   // step3, get all string
-  MPI_CALL(MPI_Allgatherv(str.data(), (int)str.size(), MPI_CHAR, all_gather_str_c, recvcounts, displs, MPI_CHAR, mpi_comm));
-
-  all_gather_str_c[total_length] = '\0';
-
-  std::string all_gather_str(all_gather_str_c);
-
-  // free memory
-  free(displs);
-  free(recvcounts);
-  free(all_gather_str_c);
+  MPI_CALL(MPI_Allgatherv(str.data(), (int)str.size(), MPI_CHAR, &(all_gather_str[0]), recvcounts.data(), displs.data(), MPI_CHAR, mpi_comm));
 
   std::vector<std::string> ret;
 
@@ -387,16 +375,10 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   int total_task_count = task_cells_.size();
   int byte_count = (total_task_count + 7) / 8;
 
-  if (byte_count > recvbuf_size) {
-    if (nullptr != recvbuf) {
-      free(recvbuf);
-    }
+  recv_buffer.reserve(byte_count);
+  recv_buffer.zero();
 
-    recvbuf_size = byte_count;
-    recvbuf = (uint8_t*)malloc(sizeof(uint8_t) * recvbuf_size);
-  }
-
-  memset(recvbuf, 0, byte_count);
+  uint8_t *recv = (uint8_t*) recv_buffer.ptr();
 
   // iterator waiting_request_pool_ set corresponding bit to be 1
   for (auto &task : waiting_request_pool_) {
@@ -410,20 +392,20 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
     int byte_index = id / 8;
     int bit_offset = id % 8;
 
-    recvbuf[byte_index] |= (((uint8_t)1) << bit_offset);
+    recv[byte_index] |= (((uint8_t)1) << bit_offset);
   }
 
   // use allreduce to check whether other rank ready
-  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recvbuf, byte_count, MPI_UINT8_T, MPI_BAND, context.world_comm));
+  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recv, byte_count, MPI_UINT8_T, MPI_BAND, context.world_comm));
 
   std::unordered_map<TaskType, std::vector<Task>> should_execute_tasks;
 
-  // iterator the recvbuf to check whether task should be execute
+  // iterator the recv to check whether task should be execute
   for (int id = 0; id < total_task_count; ++id) {
     int byte_index = id / 8;
     int bit_offset = id % 8;
 
-    if (0 == (recvbuf[byte_index] & (((uint8_t)1) << bit_offset))) {
+    if (0 == (recv[byte_index] & (((uint8_t)1) << bit_offset))) {
       continue;
     }
 

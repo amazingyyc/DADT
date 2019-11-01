@@ -86,6 +86,7 @@ public:
   void zero(void*, size_t);
 };
 
+// this two funcion is thread-safe
 std::shared_ptr<Device> get_cpu_device();
 std::shared_ptr<Device> get_gpu_device(int device_id);
 

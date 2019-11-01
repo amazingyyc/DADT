@@ -36,4 +36,11 @@ void MemoryBuffer::reserve(size_t new_size) {
     size_ = new_size;
   }
 }
+
+void MemoryBuffer::zero() {
+  if (nullptr != ptr_) {
+    device_->zero(ptr_, size_);
+  }
+}
+
 }

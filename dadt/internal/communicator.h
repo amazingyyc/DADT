@@ -9,6 +9,7 @@
 #include "types.h"
 #include "task.h"
 #include "group.h"
+#include "memory_buffer.h"
 #include "timeline.h"
 
 namespace dadt {
@@ -42,8 +43,8 @@ private:
   // the task in this pool means already pass group check, waiting other rank ready
   TaskKeyMap<Task>  waiting_request_pool_;
 
-  uint8_t *recvbuf = nullptr;
-  int32_t recvbuf_size = 0;
+  // use for bit allreduce
+  MemoryBuffer recv_buffer;
 
 private:
   // exchange string between ranks
