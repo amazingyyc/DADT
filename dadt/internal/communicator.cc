@@ -414,7 +414,7 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
 
     ARGUMENT_CHECK(waiting_request_pool_.find(task_key) != waiting_request_pool_.end(), "cann not find task:" << std::get<1>(task_key) << " in waiting_request_pool_.");
 
-    should_execute_tasks[task.task_type].emplace_back(waiting_request_pool_[task_key]);
+    should_execute_tasks[std::get<0>(task_key)].emplace_back(waiting_request_pool_[task_key]);
 
     waiting_request_pool_.erase(task_key);
   }

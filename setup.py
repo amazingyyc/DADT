@@ -33,6 +33,9 @@ def find_in_path(name, path):
 
 '''find a file in folder'''
 def find_file_in_folder(folder, name):
+  if not os.path.isdir(folder):
+    return None
+
   for file_name in os.listdir(folder):
     file_path = os.path.join(folder, file_name)
 
@@ -49,10 +52,13 @@ def find_file_in_folder(folder, name):
 
 def find_file_in_folders(folders, name):
   for folder in folders:
-    correct_path = find_file_in_folder(folder, name)
+    try:
+      correct_path = find_file_in_folder(folder, name)
 
-    if None != correct_path:
-      return correct_path
+      if None != correct_path:
+        return correct_path
+    except:
+      pass
 
   return None
 
@@ -149,7 +155,13 @@ class CMakeBuildExt(build_ext):
       cmake_args.append('-DHAVE_NCCL=1')
 
       # add CUDA args
-      nvcc_path = find_in_path('nvcc', os.environ['PATH'])
+      nvcc_search_folders = ['/lib', '/lib64', '/usr/lib', '/usr/lib64', '/usr/local/lib', '/usr/local/lib64', '/usr/local/cuda/bin']
+
+      for i in os.environ['PATH'].split(':'):
+        nvcc_search_folders.append(i)
+
+      # nvcc_path = find_in_path('nvcc', os.environ['PATH'])
+      nvcc_path = find_file_in_folders(nvcc_search_folders, 'nvcc')
 
       if nvcc_path is None:
         raise ValueError('Build for GPU, but can not find nvcc, add it to path try again')
@@ -228,7 +240,7 @@ class CMakeBuildExt(build_ext):
 
 setup(
     name='DADT',
-    version='0.1.0',
+    version='0.2.0',
     description='A Decentrilized Asynchronously Distribute Training framwork',
     long_description='',
     author='Yan Yuanchi',
