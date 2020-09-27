@@ -54,16 +54,16 @@ private:
       : id_(id), byte_width_(byte_width), name_(name) {}
 
 public:
-  DType id() const { 
-    return id_; 
+  DType id() const {
+    return id_;
   }
 
-  size_t byte_width() const { 
-    return byte_width_; 
+  size_t byte_width() const {
+    return byte_width_;
   }
 
-  std::string name() const { 
-    return name_; 
+  std::string name() const {
+    return name_;
   }
 
   bool operator==(const ElementType &other) const {
@@ -74,8 +74,8 @@ public:
     return this->id_ != other.id_;
   }
 
-  template <typename T> bool is() const { 
-    RUNTIME_ERROR("Unknow type"); 
+  template <typename T> bool is() const {
+    RUNTIME_ERROR("Unknow type");
   }
 
   template <typename T> static ElementType from() {

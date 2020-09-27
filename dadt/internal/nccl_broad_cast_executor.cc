@@ -13,7 +13,7 @@ NCCLBroadCastExecutor::~NCCLBroadCastExecutor() {
 }
 
 std::shared_ptr<LockTensor> NCCLBroadCastExecutor::obtain_midway_tensor(std::string name) {
-  return std::shared_ptr<LockTensor>();
+  return nullptr;
 }
 
 std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
@@ -28,9 +28,9 @@ std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::str
 
 void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
   // begin broad cast timeline
-  if (context.enable_timeline.load()) {
-    timeline->begin(tasks, kDoBroadCastEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->begin(tasks, kDoBroadCastEvent);
+  // }
 
   // for broad cast we will broad one by one
   for (auto &task : tasks) {
@@ -54,9 +54,9 @@ void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector
   }
 
   // end broad cast timeline
-  if (context.enable_timeline.load()) {
-    timeline->end(tasks, kDoBroadCastEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->end(tasks, kDoBroadCastEvent);
+  // }
 }
 
 }

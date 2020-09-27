@@ -22,7 +22,7 @@ void init(Config config);
 // stop the background thread
 void shutdown();
 
-// id have been initialized
+// whether have been initialized
 bool initialized();
 
 // how many process 

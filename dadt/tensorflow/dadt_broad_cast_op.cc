@@ -34,8 +34,8 @@ public:
     // broad cast tensor not need reuse
     auto midway_tensor = dadt::create_midway_tensor(dadt::kBroadCastTaskType, op_name, dims, element_type);
 
-    // CPU op only support CPU tensor 
-    ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(), 
+    // CPU op only support CPU tensor
+    ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(),
     "CPU op must use CPU tensor, so please choose MPI executor to do braodcast.");
 
     // kCopyToMidWayEvent begin
@@ -90,7 +90,7 @@ public:
     auto element_type = convert_dtype_to_element_type(input.dtype());
 
     auto midway_tensor = dadt::create_midway_tensor(dadt::kBroadCastTaskType, op_name, dims, element_type);
-    
+
     // kCopyToMidWayEvent begin
     dadt::begin_timeline_event(op_name, dadt::kCopyToMidWayEvent);
 

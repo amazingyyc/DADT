@@ -20,7 +20,7 @@
 #include "mpi_all_reduce_executor.h"
 #include "mpi_broad_cast_executor.h"
 
-#ifdef HAVE_NCCL 
+#ifdef HAVE_NCCL
 #include "nccl_broad_cast_executor.h"
 #include "nccl_all_reduce_executor.h"
 #include "mpi_cuda_broad_cast_executor.h"
@@ -273,9 +273,9 @@ void Commander::enqueue_task(Task &&t) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
   // timeline
-  if (context_.enable_timeline.load()) {
-    timeline_->begin(t.name, kStayInTaskQueueEvent);
-  }
+  // if (context_.enable_timeline.load()) {
+  //   timeline_->begin(t.name, kStayInTaskQueueEvent);
+  // }
 
   auto ret = task_queue_.enqueue(t);
 
@@ -284,15 +284,15 @@ void Commander::enqueue_task(Task &&t) {
 
 // timeline event
 void Commander::begin_timeline_event(const std::string &name, const std::string &event) {
-  if (context_.enable_timeline.load()) {
-    timeline_->begin(name, event);
-  }
+  // if (context_.enable_timeline.load()) {
+  //   timeline_->begin(name, event);
+  // }
 }
 
 void Commander::end_timeline_event(const std::string &name, const std::string &event) {
-  if (context_.enable_timeline.load()) {
-    timeline_->end(name, event);
-  }
+  // if (context_.enable_timeline.load()) {
+  //   timeline_->end(name, event);
+  // }
 }
 
 #ifdef HAVE_NCCL

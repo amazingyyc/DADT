@@ -4,7 +4,7 @@ namespace dadt {
 
 MPICUDAAllReduceExecutor::MPICUDAAllReduceExecutor(std::shared_ptr<Device> gpu_device, size_t buffer_size)
   :gpu_device_(gpu_device), buffer_(gpu_device) {
-  
+
   // reserve enough buffer
   buffer_.reserve(buffer_size);
 
@@ -24,7 +24,7 @@ std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::obtain_midway_tensor(std::
     return tensor_pool_[name];
   }
 
-  return std::shared_ptr<LockTensor>();
+  return nullptr;
 }
 
 std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
@@ -62,9 +62,9 @@ void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vec
   }
 
   // timeline
-  if (context.enable_timeline.load()) {
-    timeline->begin(tasks, kDoAllReduceEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->begin(tasks, kDoAllReduceEvent);
+  // }
 
   // split task
   auto merge_units = split_tasks(tasks, buffer_.size());
@@ -82,10 +82,10 @@ void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vec
 
       for (size_t i = unit.begin; i < unit.end; ++i) {
         // copy memory async
-        CUDA_CALL(cudaMemcpyAsync(buffer_.ptr(offset), 
-                                  tasks[i].tensor->ptr(), 
-                                  tasks[i].tensor->num_bytes(), 
-                                  cudaMemcpyDeviceToDevice, 
+        CUDA_CALL(cudaMemcpyAsync(buffer_.ptr(offset),
+                                  tasks[i].tensor->ptr(),
+                                  tasks[i].tensor->num_bytes(),
+                                  cudaMemcpyDeviceToDevice,
                                   context.cuda_stream));
 
         offset += tasks[i].tensor->num_bytes();
@@ -109,12 +109,12 @@ void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vec
       size_t offset = 0;
 
       for (size_t i = unit.begin; i < unit.end; ++i) {
-        CUDA_CALL(cudaMemcpyAsync(tasks[i].tensor->ptr(), 
-                                  buffer_.ptr(offset), 
-                                  tasks[i].tensor->num_bytes(), 
+        CUDA_CALL(cudaMemcpyAsync(tasks[i].tensor->ptr(),
+                                  buffer_.ptr(offset),
+                                  tasks[i].tensor->num_bytes(),
                                   cudaMemcpyDeviceToDevice,
                                   context.cuda_stream));
-      
+
         offset += tasks[i].tensor->num_bytes();
       }
 
@@ -129,11 +129,11 @@ void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vec
     }
 
     // timeline
-    if (context.enable_timeline.load()) {
-      for (size_t i = unit.begin; i < unit.end; ++i) {
-        timeline->end(tasks[i].name, kDoAllReduceEvent);
-      }
-    }
+    // if (context.enable_timeline.load()) {
+    //   for (size_t i = unit.begin; i < unit.end; ++i) {
+    //     timeline->end(tasks[i].name, kDoAllReduceEvent);
+    //   }
+    // }
   }
 }
 

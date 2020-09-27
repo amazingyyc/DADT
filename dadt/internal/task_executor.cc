@@ -100,7 +100,7 @@ std::vector<MergeUnit> ITaskExecutor::split_tasks(const std::vector<Task> &tasks
     i = j;
   }
 
-  return std::move(merge_units);
+  return merge_units;
 }
 
 }

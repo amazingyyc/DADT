@@ -77,9 +77,9 @@ std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string
 }
 
 // get a interim tensor by TaskType
-std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, 
-                                          std::string name, 
-                                          std::vector<int> dims, 
+std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type,
+                                          std::string name,
+                                          std::vector<int> dims,
                                           ElementType element_type) {
   return commander_.create_midway_tensor(task_type, name, dims, element_type);
 }

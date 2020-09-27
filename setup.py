@@ -91,7 +91,7 @@ class CMakeBuildExt(build_ext):
 
     for ext in self.extensions:
       self.build_extension(ext)
-  
+
   def build_extension(self, ext):
     lib_suffix = ['.framework', '.o', '.so', '.a', '.dylib']
 
@@ -137,7 +137,7 @@ class CMakeBuildExt(build_ext):
 
     # set tensorflow lib
     cmake_args.append('-DTENSORFLOW_LIB_PATHS=' + ';'.join(tf_lib_paths))
-    
+
     print('TENSORFLOW_INCLUDE_DIRS:', tf.sysconfig.get_include())
     print('TENSORFLOW_LIB_PATHS:', ';'.join(tf_lib_paths))
 
@@ -153,7 +153,7 @@ class CMakeBuildExt(build_ext):
 
       if nvcc_path is None:
         raise ValueError('Build for GPU, but can not find nvcc, add it to path try again')
-      
+
       cuda_home = os.path.dirname(os.path.dirname(nvcc_path))
 
       cmake_args.append('-DCUDA_INCLUDE_DIRS=' + os.path.join(cuda_home, 'include') + ';/usr/local')
@@ -164,9 +164,9 @@ class CMakeBuildExt(build_ext):
                           for file in os.listdir(cuda_lib_folder) \
                             if os.path.isfile(os.path.join(cuda_lib_folder, file)) and \
                               os.path.splitext(file)[-1] in lib_suffix]
-      
+
       cmake_args.append('-DCUDA_LIB_PATHS=' + ';'.join(cuda_lib_paths))
-      
+
       print('CUDA_INCLUDE_DIRS:', os.path.join(cuda_home, 'include'))
       print('CUDA_LIB_PATHS:', ';'.join(cuda_lib_paths))
 
@@ -175,19 +175,19 @@ class CMakeBuildExt(build_ext):
 
       if 'NCCL_DIR' is os.environ.keys():
         nccl_header_search_folders.append(os.environ['NCCL_DIR'] + '/include')
-      
+
       nccl_header_file_path = find_file_in_folders(nccl_header_search_folders, 'nccl.h')
 
       if nccl_header_file_path is None:
         raise ValueError('Can not find nccl.h file, please set NCC_DIR environment and try again')
-      
+
       cmake_args.append('-DNCCL_INCLUDE_DIRS=' + os.path.dirname(nccl_header_file_path))
 
       nccl_lib_search_folders = ['/lib', '/lib64', '/usr/lib', '/usr/lib64', '/usr/local/lib', '/usr/local/lib64']
 
       if 'NCCL_DIR' in os.environ.keys():
         nccl_lib_search_folders.append(os.environ['NCCL_DIR'] + '/lib')
-      
+
       nccl_lib_file_path = find_file_in_folders(nccl_lib_search_folders, 'libnccl.so')
 
       if nccl_lib_file_path is None:

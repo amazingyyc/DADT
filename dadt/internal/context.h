@@ -56,8 +56,8 @@ struct Context {
 
   // cross comm, the same index of every process will in the same cross communicator
   MPI_Comm cross_comm;
-  int cross_rank;
   int cross_size;
+  int cross_rank;
 
   // rank 0 is leader
   bool is_leader;

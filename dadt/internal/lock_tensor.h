@@ -37,11 +37,11 @@ private:
   SpinLock status_;
 
 public:
-  LockTensor(std::shared_ptr<TensorStorage> storage, 
-            size_t offset, 
-            Shape shape, 
+  LockTensor(std::shared_ptr<TensorStorage> storage,
+            size_t offset,
+            Shape shape,
             ElementType type,
-            std::string name, 
+            std::string name,
             LockTensorStatus initialize_status);
 
   std::string name();

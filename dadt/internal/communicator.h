@@ -44,7 +44,7 @@ private:
   TaskKeyMap<Task>  waiting_request_pool_;
 
   // use for bit allreduce
-  MemoryBuffer recv_buffer;
+  MemoryBuffer bit_allreduce_recv_buffer_;
 
 private:
   // exchange string between ranks

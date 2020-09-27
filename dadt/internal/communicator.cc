@@ -11,7 +11,7 @@
 
 namespace dadt {
 
-Communicator::Communicator(): recv_buffer(get_cpu_device()) {
+Communicator::Communicator(): bit_allreduce_recv_buffer_(get_cpu_device()) {
 }
 
 Communicator::~Communicator() {
@@ -121,14 +121,14 @@ std::vector<TaskCell> Communicator::parse_json_to_task_cells(const std::string &
 // update group and task cell
 void Communicator::update(const Context &context, const std::vector<Task> &ready_tasks, std::shared_ptr<TimeLine> timeline) {
   // before update the task info, will remove unused broadcast task, because broadcast only used once at beginning.
-  // so avoid exhange to many message between ranks.
+  // so avoid exchange to many message between ranks.
   std::vector<TaskCell> new_task_cells;
 
   for (auto &cell : task_cells_) {
     auto key = std::make_tuple(cell.task_type, cell.name);
 
     // do not keep kBroadCastTaskType
-    if (kBroadCastTaskType == cell.task_type 
+    if (kBroadCastTaskType == cell.task_type
         && waiting_group_pool_.find(key) == waiting_group_pool_.end()
         && waiting_request_pool_.find(key) == waiting_request_pool_.end()) {
       continue;
@@ -138,7 +138,6 @@ void Communicator::update(const Context &context, const std::vector<Task> &ready
   }
 
   // insert ready task
-  // new_task_cells maybe has duplicate cell
   for (auto &task : ready_tasks) {
     TaskCell cell;
 
@@ -255,39 +254,36 @@ void Communicator::update(const Context &context, const std::vector<Task> &ready
     }
   }
 
-  // after update, the Group has been empty, so should put waiting_group_pool_ in group again
-  // because the group has beeen changed, so maybe this time will get waiting_request_task
-  std::vector<TaskKey> should_request_tasks;
-
+  // When finish update Group, the new Group maybe different with previous Group, and same task maybe in different Group.
+  // Like: taks {A} is a Group, but when update task {A, B, C} maybe a Group. A maybe has already exchange with other rank, than {B, C} will always in waiting_group_pool_.
+  // So here we need put all new ready_tasks and waiting_group_pool_'s task into waiting_request_pool_ to avoid error.
   for (auto &item : waiting_group_pool_) {
-    ARGUMENT_CHECK(task_key_group_.find(item.first) != task_key_group_.end(), "can not find task key in task_key_group_");
+    ARGUMENT_CHECK(waiting_request_pool_.find(item.first) == waiting_request_pool_.end(), "find task key has already in waiting_request_pool_");
 
-    auto grouped_task_keys = task_key_group_[item.first]->insert_to_ready(item.first);
-
-    for (auto &key : grouped_task_keys) {
-      should_request_tasks.emplace_back(key);
-    }
+    waiting_request_pool_[item.first] = item.second;
   }
 
-  // for now should get task from waiting_group_pool_ put into waiting_request_pool_ by should_request_tasks
-  for (auto &key : should_request_tasks) {
-    ARGUMENT_CHECK(waiting_group_pool_.find(key) != waiting_group_pool_.end(), "waiting group do not have taskkey");
-    ARGUMENT_CHECK(waiting_request_pool_.find(key) == waiting_request_pool_.end(), "waiting_request_pool_ has already has the task");
+  // clear waiting_group_pool_
+  waiting_group_pool_.clear();
 
-    // put into waiting_request_pool_
-    waiting_request_pool_[key] = waiting_group_pool_[key];
-    waiting_group_pool_.erase(key);
+  // Put ready_tasks into waiting_request_pool_.
+  for (auto &task : ready_tasks) {
+    auto key = std::make_tuple(task.task_type, task.name);
+
+    ARGUMENT_CHECK(waiting_request_pool_.find(key) == waiting_request_pool_.end(), "waiting_request_pool_ has already include the task:" << task.name);
+
+    waiting_request_pool_[key] = task;
   }
 
   // timeline
-  if (context.enable_timeline.load()) {
-    timeline->end(should_request_tasks, kStayInWaitingGroupPoolEvent);
-    timeline->begin(should_request_tasks, kStayInWaitingRequestPoolEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->end(should_request_tasks, kStayInWaitingGroupPoolEvent);
+  //   timeline->begin(should_request_tasks, kStayInWaitingRequestPoolEvent);
+  // }
 }
 
 // at here will exchange with other rank get ready task
-std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Context &context, 
+std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Context &context,
                                                                        moodycamel::ConcurrentQueue<Task> &task_queue,
                                                                        std::shared_ptr<TimeLine> timeline) {
   std::vector<Task> ready_tasks;
@@ -303,9 +299,9 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   }
 
   // outof queue timeline
-  if (context.enable_timeline.load()) {
-    timeline->end(ready_tasks, kStayInTaskQueueEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->end(ready_tasks, kStayInTaskQueueEvent);
+  // }
 
   // after get task from queue, will check whether the taskkey in the map, if not will communicator with other rank to exchange new taskkey
   uint8_t unknow_task_key = 0;
@@ -325,9 +321,11 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   if (0 != unknow_task_key) {
     // for now we get some unknow task key, than we will exchange the taskkey between ranks and update info.
     update(context, ready_tasks, timeline);
+
+    // If update the task cell, then ready_tasks has insert into waiting_request_pool_, so clear it
+    ready_tasks.clear();
   }
 
-  // for now the info has been updated.
   // firstly put ready_task into waiting_group_pool_
   for (auto &task : ready_tasks) {
     auto key = std::make_tuple(task.task_type, task.name);
@@ -338,9 +336,9 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   }
 
   // StayInWaitingGroupPool timeline
-  if (context.enable_timeline.load()) {
-    timeline->begin(ready_tasks, kStayInWaitingGroupPoolEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->begin(ready_tasks, kStayInWaitingGroupPoolEvent);
+  // }
 
   // check the task will be request with other rank
   std::vector<TaskKey> should_request_tasks;
@@ -365,20 +363,20 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
   }
 
   // timeline
-  if (context.enable_timeline.load()) {
-    timeline->end(should_request_tasks, kStayInWaitingGroupPoolEvent);
-    timeline->begin(should_request_tasks, kStayInWaitingRequestPoolEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->end(should_request_tasks, kStayInWaitingGroupPoolEvent);
+  //   timeline->begin(should_request_tasks, kStayInWaitingRequestPoolEvent);
+  // }
 
   // now all waiting request task has been put into waiting_request_pool_
   // should talk with other rank to get real ready tasks
   int total_task_count = task_cells_.size();
   int byte_count = (total_task_count + 7) / 8;
 
-  recv_buffer.reserve(byte_count);
-  recv_buffer.zero();
+  bit_allreduce_recv_buffer_.reserve(byte_count);
+  bit_allreduce_recv_buffer_.zero();
 
-  uint8_t *recv = (uint8_t*) recv_buffer.ptr();
+  uint8_t *recv_ptr = (uint8_t*) bit_allreduce_recv_buffer_.ptr();
 
   // iterator waiting_request_pool_ set corresponding bit to be 1
   for (auto &task : waiting_request_pool_) {
@@ -392,20 +390,20 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
     int byte_index = id / 8;
     int bit_offset = id % 8;
 
-    recv[byte_index] |= (((uint8_t)1) << bit_offset);
+    recv_ptr[byte_index] |= (((uint8_t)1) << bit_offset);
   }
 
   // use allreduce to check whether other rank ready
-  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recv, byte_count, MPI_UINT8_T, MPI_BAND, context.world_comm));
+  MPI_CALL(MPI_Allreduce(MPI_IN_PLACE, recv_ptr, byte_count, MPI_UINT8_T, MPI_BAND, context.world_comm));
 
   std::unordered_map<TaskType, std::vector<Task>> should_execute_tasks;
 
-  // iterator the recv to check whether task should be execute
+  // iterator the recv_ptr to check whether task should be execute
   for (int id = 0; id < total_task_count; ++id) {
     int byte_index = id / 8;
     int bit_offset = id % 8;
 
-    if (0 == (recv[byte_index] & (((uint8_t)1) << bit_offset))) {
+    if (0 == (recv_ptr[byte_index] & (((uint8_t)1) << bit_offset))) {
       continue;
     }
 
@@ -416,19 +414,17 @@ std::unordered_map<TaskType, std::vector<Task>> Communicator::exchange(const Con
 
     ARGUMENT_CHECK(waiting_request_pool_.find(task_key) != waiting_request_pool_.end(), "cann not find task:" << std::get<1>(task_key) << " in waiting_request_pool_.");
 
-    auto task = waiting_request_pool_[task_key];
-
-    should_execute_tasks[task.task_type].emplace_back(std::move(task));
+    should_execute_tasks[task.task_type].emplace_back(waiting_request_pool_[task_key]);
 
     waiting_request_pool_.erase(task_key);
   }
 
   // outof waiting request
-  if (context.enable_timeline.load()) {
-    for (auto &tasks : should_execute_tasks) {
-      timeline->end(tasks.second, kStayInWaitingRequestPoolEvent);
-    }
-  }
+  // if (context.enable_timeline.load()) {
+  //   for (auto &tasks : should_execute_tasks) {
+  //     timeline->end(tasks.second, kStayInWaitingRequestPoolEvent);
+  //   }
+  // }
 
   // the task in should_execute_tasks is sorted by id
   return std::move(should_execute_tasks);

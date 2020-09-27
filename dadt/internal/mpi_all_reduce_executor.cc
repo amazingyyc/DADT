@@ -15,7 +15,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::stri
     return tensor_pool_[name];
   }
 
-  return std::shared_ptr<LockTensor>();
+  return nullptr;
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
@@ -37,7 +37,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::stri
 
   // the tensor in allreduce inited status is kWaitForFetch
   auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kWaitForFetch);
-  
+
   tensor_pool_[name] = tensor;
 
   return tensor;
@@ -50,15 +50,15 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
   ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(), "MPIAllReduceExecutor only support float/double");
 
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() && 
-                  element_type == task.tensor->element_type(), 
+    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() &&
+                  element_type == task.tensor->element_type(),
                   "mpi all reduce only support cpu tensor, element type must be float/double")
   }
 
   // begin allreduce timeline
-  if (context.enable_timeline.load()) {
-    timeline->begin(tasks, kDoAllReduceEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->begin(tasks, kDoAllReduceEvent);
+  // }
 
   auto merge_units = split_tasks(tasks, buffer_.size());
 
@@ -105,11 +105,11 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     }
 
     // timeline
-    if (context.enable_timeline.load()) {
-      for (size_t i = unit.begin; i < unit.end; ++i) {
-        timeline->end(tasks[i].name, kDoAllReduceEvent);
-      }
-    }
+    // if (context.enable_timeline.load()) {
+    //   for (size_t i = unit.begin; i < unit.end; ++i) {
+    //     timeline->end(tasks[i].name, kDoAllReduceEvent);
+    //   }
+    // }
   }
 }
 

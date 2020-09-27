@@ -24,7 +24,7 @@ all_reduce_executor:what kind all reduce executor should be used
 2: mpi cuda all reduce
 '''
 class Config(ctypes.Structure):
-  _fields_ = [("cycle_duration_ms", ctypes.c_int), 
+  _fields_ = [("cycle_duration_ms", ctypes.c_int),
               ("broad_cast_executor", ctypes.c_int),
               ("all_reduce_executor", ctypes.c_int),
               ("all_reduce_buffer_size", ctypes.c_size_t),
@@ -54,9 +54,9 @@ init dadt
 broad_cast_executor: accept 'mpi', 'nccl'
 all_reduce_executor: accept 'mpi', 'nccl', 'mpicuda'
 '''
-def init(cycle_duration_ms=5, 
+def init(cycle_duration_ms=5,
          broad_cast_executor='nccl',
-         all_reduce_executor='nccl', 
+         all_reduce_executor='nccl',
          all_reduce_buffer_size=67108864,
          group_buffer_size=0,
          timeline_path=None):
@@ -85,7 +85,7 @@ def init(cycle_duration_ms=5,
     timeline_path_p = None
   else:
     timeline_path_p = ctypes.c_char_p(timeline_path.encode('utf-8'))
-  
+
   config = Config(cycle_duration_ms=cycle_duration_ms,
                   broad_cast_executor=broad_cast_executor_type,
                   all_reduce_executor=all_reduce_executor_type,
@@ -144,7 +144,7 @@ def all_reduce(tensor, name=None):
 def broad_cast(tensor, name=None):
   if name is None:
     name = 'DadtBroadCast_{0}'.format(normalize_name(tensor.name))
-  
+
   return dadt_tf_module.dadt_broad_cast(tensor, name=name)
 
 '''a session hook, will broad cast the weigths from rank 0 to other ranks'''
@@ -171,7 +171,7 @@ class BroadcastGlobalVariablesHook(tf.train.SessionRunHook):
   def begin(self):
     assign_ops = [tf.assign(var, broad_cast(var)) for var in tf.global_variables()]
     self.broad_cast_op = tf.group(*assign_ops)
-  
+
   def after_create_session(self, session, coord):
     session.run(self.broad_cast_op)
 
@@ -208,7 +208,7 @@ class DistributedOptimizer(tf.train.Optimizer):
             dadt_gradients.append((avg_grad, var))
           else:
             dadt_gradients.append((None, var))
-        
+
       return dadt_gradients
     else:
       return origin_gradients

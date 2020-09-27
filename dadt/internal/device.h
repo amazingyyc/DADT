@@ -73,7 +73,7 @@ public:
   bool operator==(const Device &) const;
 
   int device_id();
-  
+
   DeviceType device_type();
 
   // malloc memory from device
