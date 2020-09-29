@@ -45,7 +45,8 @@ private:
 #ifdef HAVE_NCCL
   // every thread has a unique cuda event
   // used by op to wait cuda kernel finish
-  std::mutex op_cuda_event_mutex_;
+  SpinLock op_cuda_events_locker_;
+
   std::unordered_map<std::thread::id, cudaEvent_t> op_cuda_events_;
 #endif
 

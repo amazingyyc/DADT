@@ -17,8 +17,7 @@ NCCLAllReduceExecutor::~NCCLAllReduceExecutor() {
 }
 
 std::shared_ptr<LockTensor> NCCLAllReduceExecutor::obtain_midway_tensor(std::string name) {
-  // add lock
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
@@ -28,7 +27,7 @@ std::shared_ptr<LockTensor> NCCLAllReduceExecutor::obtain_midway_tensor(std::str
 }
 
 std::shared_ptr<LockTensor> NCCLAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it

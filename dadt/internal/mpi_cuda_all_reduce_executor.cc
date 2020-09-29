@@ -18,7 +18,7 @@ MPICUDAAllReduceExecutor::~MPICUDAAllReduceExecutor() {
 
 // whether already create a midway tensor
 std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::obtain_midway_tensor(std::string name) {
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
@@ -28,7 +28,7 @@ std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::obtain_midway_tensor(std::
 }
 
 std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     auto tensor = tensor_pool_[name];

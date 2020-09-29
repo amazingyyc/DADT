@@ -21,7 +21,7 @@ private:
   std::shared_ptr<Device> gpu_device_;
 
   // tensor_pool_ will used in multi-thread
-  std::mutex pool_mutex_;
+  SpinLock pool_locker_;
 
   // nccl all reduce will resuse the midway tesnor
   std::unordered_map<std::string, std::shared_ptr<LockTensor>> tensor_pool_;

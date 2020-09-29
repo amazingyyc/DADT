@@ -297,7 +297,7 @@ void Commander::end_timeline_event(const std::string &name, const std::string &e
 
 #ifdef HAVE_NCCL
 cudaEvent_t Commander::obtain_cuda_event() {
-  std::unique_lock<std::mutex> lock(op_cuda_event_mutex_);
+  SpinLockHandler handler(op_cuda_events_locker_);
 
   auto id = std::this_thread::get_id();
 

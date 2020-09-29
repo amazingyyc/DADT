@@ -22,7 +22,7 @@ private:
   std::shared_ptr<Device> gpu_device_;
 
   // tensor_pool_ will used in multi-thread
-  std::mutex pool_mutex_;
+  SpinLock pool_locker_;
 
   // allreduce will reuse the tensor, so use a map to store it
   // the tensor is GPU tensor

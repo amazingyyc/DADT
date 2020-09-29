@@ -9,7 +9,7 @@ MPIAllReduceExecutor::MPIAllReduceExecutor(std::shared_ptr<Device> cpu_device, s
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::string name) {
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
@@ -19,7 +19,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::stri
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it
@@ -47,7 +47,8 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
   // mpi all reduce only support cpu tensor and float/double
   auto element_type = tasks[0].tensor->element_type();
 
-  ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(), "MPIAllReduceExecutor only support float/double");
+  ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(),
+      "MPIAllReduceExecutor only support float/double, but get:" << element_type.name());
 
   for (auto &task : tasks) {
     ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() &&
