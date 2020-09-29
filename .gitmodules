@@ -4,4 +4,3 @@
 [submodule "dadt/third_party/concurrentqueue"]
 	path = dadt/third_party/concurrentqueue
 	url = https://github.com/cameron314/concurrentqueue.git
-
