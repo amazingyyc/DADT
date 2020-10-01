@@ -12,3 +12,4 @@ from dadt import local_barrier
 
 from dadt.pytorch.operators import broad_cast
 from dadt.pytorch.operators import all_reduce
+from dadt.pytorch.operators import DistributedOptimizer

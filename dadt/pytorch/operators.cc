@@ -56,7 +56,7 @@ torch::Tensor broad_cast_cpu(torch::Tensor input, const std::string &name) {
 
   // CPU op only support CPU tensor
   ARGUMENT_CHECK(dadt::DeviceType::CPU == midway_tensor->device()->device_type(),
-  "CPU broadcast must use CPU tensor, so please choose MPI executor to do braodcast.");
+    "CPU broadcast must use CPU tensor, so please choose MPI executor to do braodcast.");
 
   // copy input to midway tensor
   std::memcpy(midway_tensor->ptr(), input.data_ptr(), midway_tensor->num_bytes());
@@ -109,7 +109,9 @@ torch::Tensor broad_cast_gpu(torch::Tensor input, const std::string &name) {
                               cuda_stream.stream()));
   } else {
     // Copy GPU memory to GPU
-    ARGUMENT_CHECK(input.device().index() == midway_tensor->device()->device_id(), "Pytorch GPU device index is not same with DADT");
+    ARGUMENT_CHECK(input.device().index() == midway_tensor->device()->device_id(),
+      "Pytorch GPU device index is not same with DADT");
+
     CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
                               input.data_ptr(),
                               midway_tensor->num_bytes(),
@@ -185,7 +187,7 @@ torch::Tensor broad_cast(torch::Tensor input, const std::string &name) {
 }
 
 // AllReduce CPU
-torch::Tensor all_reduce_cpu(torch::Tensor input, const std::string &name) {
+torch::Tensor all_reduce_cpu(torch::Tensor input, const std::string &name, float multiplier) {
   // create output
   auto output = torch::empty_like(input);
 
@@ -229,12 +231,12 @@ torch::Tensor all_reduce_cpu(torch::Tensor input, const std::string &name) {
   // put task in queue
   dadt::enqueue_task(std::move(task));
 
-  return output;
+  return output * multiplier;
 }
 
 #ifdef HAVE_NCCL
 // AllReduce GPU
-torch::Tensor all_reduce_gpu(torch::Tensor input, const std::string &name) {
+torch::Tensor all_reduce_gpu(torch::Tensor input, const std::string &name, float multiplier) {
   // Get current cuda stream.
   auto cuda_stream = c10::cuda::getCurrentCUDAStream(input.device().index());
 
@@ -309,19 +311,19 @@ torch::Tensor all_reduce_gpu(torch::Tensor input, const std::string &name) {
   // put task in queue
   dadt::enqueue_task(std::move(task));
 
-  return output;
+  return output * multiplier;
 }
 #endif
 
-torch::Tensor all_reduce(torch::Tensor input, const std::string &name) {
+torch::Tensor all_reduce(torch::Tensor input, const std::string &name, float multiplier) {
   if (input.is_cuda()) {
 #ifdef HAVE_NCCL
-    return all_reduce_gpu(input, name);
+    return all_reduce_gpu(input, name, multiplier);
 #else
     RUNTIME_ERROR("dadt not build with GPU, please rebuild it with GPU.")
 #endif
   } else {
-    return all_reduce_cpu(input, name);
+    return all_reduce_cpu(input, name, multiplier);
   }
 }
 
@@ -331,6 +333,7 @@ PYBIND11_MODULE(dadt_pytorch, m) {
   m.def("broad_cast", &broad_cast, "broad_cast tensor from rank-0 to other ranks.");
   m.def("all_reduce", &all_reduce, "all_reduce cross all rank.");
 }
+
 
 }
 }
