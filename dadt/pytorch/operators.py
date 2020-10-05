@@ -13,10 +13,21 @@ def all_reduce(x, name, multiplier=1.0):
   return native_ops.all_reduce(x, name, multiplier)
 
 class DistributedOptimizer:
+  # DistributedOptimizer idx every DistributedOptimizer has a unique index
+  _DistributedIndex = 0
+
+  @classmethod
+  def _generate_index(cls):
+    cls._DistributedIndex += 1
+    return cls._DistributedIndex
+
   def __init__(self, optimizer: torch.optim.Optimizer, is_avg=True):
     self._optimizer = optimizer
     self._is_avg = is_avg
     self._parameter_names = {}
+
+    # every DistributedOptimizer has a uniuqe index
+    self._index = DistributedOptimizer._generate_index()
 
     if self._is_avg:
       self._multiplier = float(1.0 / float(dadt_lib_module.size()))
@@ -30,7 +41,7 @@ class DistributedOptimizer:
       for p in param_group['params']:
         if p.requires_grad:
           # use short string, b means broadcast
-          name = 'b.{}'.format(broad_cast_idx)
+          name = '{}.b.{}'.format(self._index, broad_cast_idx)
 
           p.data = broad_cast(p.data, name)
 
@@ -43,7 +54,7 @@ class DistributedOptimizer:
       for p in param_group['params']:
         if p.requires_grad:
           # store unique name, use short string, a means allreduce
-          self._parameter_names[p] = 'a.{}'.format(all_reduce_idx)
+          self._parameter_names[p] = '{}.a.{}'.format(self._index, all_reduce_idx)
           all_reduce_idx += 1
 
           p.grad = p.data.new(p.size()).zero_()
