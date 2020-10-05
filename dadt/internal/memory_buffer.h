@@ -33,6 +33,8 @@ public:
   // reserve the size memory, if current size is small remalloc a new memory
   // or reuse it
   void reserve(size_t);
+
+  void zero();
 };
 
 }

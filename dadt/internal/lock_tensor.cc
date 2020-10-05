@@ -6,11 +6,11 @@
 
 namespace dadt {
 
-LockTensor::LockTensor(std::shared_ptr<TensorStorage> storage, 
-                      size_t offset, 
-                      Shape shape, 
+LockTensor::LockTensor(std::shared_ptr<TensorStorage> storage,
+                      size_t offset,
+                      Shape shape,
                       ElementType type,
-                      std::string name, 
+                      std::string name,
                       LockTensorStatus initialize_status)
   :Tensor(storage, offset, shape, type), name_(name), status_((int)initialize_status) {
 }

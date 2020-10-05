@@ -6,7 +6,7 @@ MPIBroadCastExecutor::MPIBroadCastExecutor(std::shared_ptr<Device> cpu_device): 
 }
 
 std::shared_ptr<LockTensor> MPIBroadCastExecutor::obtain_midway_tensor(std::string name) {
-  return std::shared_ptr<LockTensor>();
+  return nullptr;
 }
 
 std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
@@ -25,9 +25,9 @@ std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::stri
 
 void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
   // begin broad cast timeline
-  if (context.enable_timeline.load()) {
-    timeline->begin(tasks, kDoBroadCastEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->begin(tasks, kDoBroadCastEvent);
+  // }
 
   // for broad cast we will broad one by one
   for (auto &task : tasks) {
@@ -44,9 +44,9 @@ void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<
     // finish callback
     task.done();
 
-    if (context.enable_timeline.load()) {
-      timeline->end(task.name, kDoBroadCastEvent);
-    }
+    // if (context.enable_timeline.load()) {
+    //   timeline->end(task.name, kDoBroadCastEvent);
+    // }
   }
 }
 

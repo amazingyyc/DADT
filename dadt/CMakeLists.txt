@@ -1,71 +1,46 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(dadt LANGUAGES CXX)
+# c++14
+set(CMAKE_CXX_STANDARD 14)
 
-set(DADT_HEADER_FILES
-  internal/commander.h
-  internal/communicator.h
-  internal/context.h
-  internal/device.h
-  internal/definition.h
-  internal/element_type.h
-  internal/group.h
-  internal/lock_tensor.h
-  internal/memory_buffer.h
-  internal/mpi_all_reduce_executor.h
-  internal/mpi_broad_cast_executor.h
-  internal/shape.h
-  internal/spin_lock.h
-  internal/task_executor.h
-  internal/task.h
-  internal/tensor_storage.h
-  internal/tensor.h
-  internal/thread_pool.h
-  internal/internal.h
-  internal/timeline.h
-
-  tensorflow/tensorflow_utils.h
-)
-
-set(DADT_SRC_FILES
-  internal/commander.cc
-  internal/communicator.cc
-  internal/device.cc
-  internal/group.cc
-  internal/lock_tensor.cc
-  internal/memory_buffer.cc
-  internal/mpi_all_reduce_executor.cc
-  internal/mpi_broad_cast_executor.cc
-  internal/shape.cc
-  internal/spin_lock.cc
-  internal/task_executor.cc
-  internal/tensor_storage.cc
-  internal/tensor.cc
-  internal/thread_pool.cc
-  internal/internal.cc
-  internal/timeline.cc
-
-  tensorflow/tensorflow_utils.cc
-  tensorflow/dadt_broad_cast_op.cc
-  tensorflow/dadt_all_reduce_op.cc
-)
-
-if (HAVE_NCCL)
-  list(APPEND DADT_HEADER_FILES internal/nccl_all_reduce_executor.h)
-  list(APPEND DADT_HEADER_FILES internal/nccl_broad_cast_executor.h)
-  list(APPEND DADT_HEADER_FILES internal/mpi_cuda_broad_cast_executor.h)
-  list(APPEND DADT_HEADER_FILES internal/mpi_cuda_all_reduce_executor.h)
-
-  list(APPEND DADT_SRC_FILES internal/nccl_all_reduce_executor.cc)
-  list(APPEND DADT_SRC_FILES internal/nccl_broad_cast_executor.cc)
-  list(APPEND DADT_HEADER_FILES internal/mpi_cuda_broad_cast_executor.cc)
-  list(APPEND DADT_HEADER_FILES internal/mpi_cuda_all_reduce_executor.cc)
+# set D_GLIBCXX_USE_CXX11_ABI
+if (ADD_GLIBCXX_USE_CXX11_ABI)
+  add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 endif()
 
-add_library(dadt SHARED ${DADT_HEADER_FILES} ${DADT_SRC_FILES})
+# find mpi
+find_package(MPI REQUIRED)
 
+# mpi include path
+include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
+
+# add nccl definition
 if (HAVE_NCCL)
-  target_link_libraries(dadt json11 ${MPI_CXX_LIBRARIES} ${TENSORFLOW_LIB_PATHS} ${CUDA_LIB_PATHS} ${NCCL_LIB_PATHS})
-else()
-  target_link_libraries(dadt json11 ${MPI_CXX_LIBRARIES} ${TENSORFLOW_LIB_PATHS})
+  add_definitions(-DHAVE_NCCL)
 endif()
+
+# if have cuda
+if (HAVE_NCCL)
+  include_directories(${CUDA_INCLUDE_DIRS})
+  include_directories(${NCCL_INCLUDE_DIRS})
+endif()
+
+# inlude python 
+include_directories(${PYTHON_INCLUDE_DIRS})
+
+# include third_party 
+include_directories(third_party/concurrentqueue)
+include_directories(third_party/json11)
+
+# internal pytorch include
+include_directories(internal)
+include_directories(pytorch)
+
+# add json11 sumodule
+add_subdirectory(third_party/json11)
+
+# add dadt internal sumodule
+add_subdirectory(internal)
+
+# add pytroch submodule
+add_subdirectory(pytorch)

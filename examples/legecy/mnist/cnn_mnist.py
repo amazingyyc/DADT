@@ -92,8 +92,9 @@ def cnn_model_fn(features, labels, mode):
 
 def main(unused_argv):
   '''init dadt'''
-  dadt.init(cycle_duration_ms=3, 
-            all_reduce_executor='mpi')
+  dadt.init(cycle_duration_ms=3,
+            broad_cast_executor='nccl',
+            all_reduce_executor='nccl')
 
   # Load training and eval data
   mnist = tf.contrib.learn.datasets.load_dataset("mnist")
@@ -129,7 +130,7 @@ def main(unused_argv):
 
   mnist_classifier.train(
     input_fn=train_input_fn,
-    steps=100,
+    steps=40000,
     hooks=[dadt_hook])
 
   # Evaluate the model and print results

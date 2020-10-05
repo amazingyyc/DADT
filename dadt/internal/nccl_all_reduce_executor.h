@@ -21,7 +21,7 @@ private:
   std::shared_ptr<Device> gpu_device_;
 
   // tensor_pool_ will used in multi-thread
-  std::mutex pool_mutex_;
+  SpinLock pool_locker_;
 
   // nccl all reduce will resuse the midway tesnor
   std::unordered_map<std::string, std::shared_ptr<LockTensor>> tensor_pool_;
@@ -41,7 +41,7 @@ public:
 
   // if has already create a midway tensor
   std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) override;
-  
+
   std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
 
   void operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) override;

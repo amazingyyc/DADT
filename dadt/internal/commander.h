@@ -26,6 +26,7 @@ private:
 
   // a flag represent whether dadt finish initizlized
   std::atomic<bool> initialized_;
+
   // a map store the task_type with corresponding task executor
   std::unordered_map<TaskType, std::shared_ptr<ITaskExecutor>> task_executors_;
 
@@ -44,7 +45,8 @@ private:
 #ifdef HAVE_NCCL
   // every thread has a unique cuda event
   // used by op to wait cuda kernel finish
-  std::mutex op_cuda_event_mutex_;
+  SpinLock op_cuda_events_locker_;
+
   std::unordered_map<std::thread::id, cudaEvent_t> op_cuda_events_;
 #endif
 
@@ -103,7 +105,7 @@ public:
   cudaEvent_t obtain_cuda_event();
 #endif
 
-  // check whether already create a midway tesnor
+  // check whether already create a midway tensor
   // it is thread safe
   std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name);
 

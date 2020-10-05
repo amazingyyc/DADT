@@ -20,7 +20,7 @@
 #include "mpi_all_reduce_executor.h"
 #include "mpi_broad_cast_executor.h"
 
-#ifdef HAVE_NCCL 
+#ifdef HAVE_NCCL
 #include "nccl_broad_cast_executor.h"
 #include "nccl_all_reduce_executor.h"
 #include "mpi_cuda_broad_cast_executor.h"
@@ -272,10 +272,10 @@ void Commander::local_barrier() {
 void Commander::enqueue_task(Task &&t) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-    // timeline
-  if (context_.enable_timeline.load()) {
-    timeline_->begin(t.name, kStayInTaskQueueEvent);
-  }
+  // timeline
+  // if (context_.enable_timeline.load()) {
+  //   timeline_->begin(t.name, kStayInTaskQueueEvent);
+  // }
 
   auto ret = task_queue_.enqueue(t);
 
@@ -284,20 +284,20 @@ void Commander::enqueue_task(Task &&t) {
 
 // timeline event
 void Commander::begin_timeline_event(const std::string &name, const std::string &event) {
-  if (context_.enable_timeline.load()) {
-    timeline_->begin(name, event);
-  }
+  // if (context_.enable_timeline.load()) {
+  //   timeline_->begin(name, event);
+  // }
 }
 
 void Commander::end_timeline_event(const std::string &name, const std::string &event) {
-  if (context_.enable_timeline.load()) {
-    timeline_->end(name, event);
-  }
+  // if (context_.enable_timeline.load()) {
+  //   timeline_->end(name, event);
+  // }
 }
 
 #ifdef HAVE_NCCL
 cudaEvent_t Commander::obtain_cuda_event() {
-  std::unique_lock<std::mutex> lock(op_cuda_event_mutex_);
+  SpinLockHandler handler(op_cuda_events_locker_);
 
   auto id = std::this_thread::get_id();
 
@@ -331,7 +331,7 @@ std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
 // get the message from the queue and allreduce cross all node
 bool Commander::worker_do_task() {
   // get should execute task
-  auto execute_tasks = communicator_.exchange(context_, task_queue_);
+  auto execute_tasks = communicator_.exchange(context_, task_queue_, timeline_);
 
   // check whether shutdown
   bool shutdown = false;
@@ -342,7 +342,7 @@ bool Commander::worker_do_task() {
   }
 
   // for now every process have some task that will be executed
-  // step3, sort the the tasks by TaskType
+  // sort the the tasks by TaskType
   std::vector<TaskType> execute_task_types;
   for (auto &item : execute_tasks) {
     execute_task_types.emplace_back(item.first);

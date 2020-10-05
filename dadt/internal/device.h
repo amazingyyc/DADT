@@ -73,7 +73,7 @@ public:
   bool operator==(const Device &) const;
 
   int device_id();
-  
+
   DeviceType device_type();
 
   // malloc memory from device
@@ -86,6 +86,7 @@ public:
   void zero(void*, size_t);
 };
 
+// this two funcion is thread-safe
 std::shared_ptr<Device> get_cpu_device();
 std::shared_ptr<Device> get_gpu_device(int device_id);
 

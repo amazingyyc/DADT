@@ -9,7 +9,7 @@ MPICUDABroadCastExecutor::~MPICUDABroadCastExecutor() {
 }
 
 std::shared_ptr<LockTensor> MPICUDABroadCastExecutor::obtain_midway_tensor(std::string name) {
-  return std::shared_ptr<LockTensor>();
+  return nullptr;
 }
 
 std::shared_ptr<LockTensor> MPICUDABroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
@@ -23,9 +23,9 @@ std::shared_ptr<LockTensor> MPICUDABroadCastExecutor::create_midway_tensor(std::
 }
 
 void MPICUDABroadCastExecutor::operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) {
-  if (context.enable_timeline.load()) {
-    timeline->begin(tasks, kDoBroadCastEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->begin(tasks, kDoBroadCastEvent);
+  // }
 
   for (auto &task : tasks) {
     ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "MPICUDABroadCastExecutor only support GPU tensor");
@@ -41,9 +41,9 @@ void MPICUDABroadCastExecutor::operator()(const Context &context, const std::vec
     // finish callback
     task.done();
 
-    if (context.enable_timeline.load()) {
-      timeline->end(task.name, kDoBroadCastEvent);
-    }
+    // if (context.enable_timeline.load()) {
+    //   timeline->end(task.name, kDoBroadCastEvent);
+    // }
   }
 }
 

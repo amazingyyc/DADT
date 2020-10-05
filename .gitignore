@@ -3,6 +3,7 @@
 build/
 .vs/
 DADT.egg-info/
+dadt.egg-info/
 dist/
 test/minist/MNIST-data/
 test/minist/model/
@@ -13,3 +14,4 @@ examples/mnist/MNIST-data/
 examples/bert/bert/__pycache__/
 examples/mnist/model1
 examples/mnist/model0
+dadt/tensorflow/__pycache__

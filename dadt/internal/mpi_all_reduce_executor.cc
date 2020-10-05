@@ -9,17 +9,17 @@ MPIAllReduceExecutor::MPIAllReduceExecutor(std::shared_ptr<Device> cpu_device, s
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::string name) {
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     return tensor_pool_[name];
   }
 
-  return std::shared_ptr<LockTensor>();
+  return nullptr;
 }
 
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  std::unique_lock<std::mutex> lock(pool_mutex_);
+  SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it
@@ -37,7 +37,7 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::stri
 
   // the tensor in allreduce inited status is kWaitForFetch
   auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kWaitForFetch);
-  
+
   tensor_pool_[name] = tensor;
 
   return tensor;
@@ -47,18 +47,19 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
   // mpi all reduce only support cpu tensor and float/double
   auto element_type = tasks[0].tensor->element_type();
 
-  ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(), "MPIAllReduceExecutor only support float/double");
+  ARGUMENT_CHECK(element_type.is<float>() || element_type.is<double>(),
+      "MPIAllReduceExecutor only support float/double, but get:" << element_type.name());
 
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() && 
-                  element_type == task.tensor->element_type(), 
+    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() &&
+                  element_type == task.tensor->element_type(),
                   "mpi all reduce only support cpu tensor, element type must be float/double")
   }
 
   // begin allreduce timeline
-  if (context.enable_timeline.load()) {
-    timeline->begin(tasks, kDoAllReduceEvent);
-  }
+  // if (context.enable_timeline.load()) {
+  //   timeline->begin(tasks, kDoAllReduceEvent);
+  // }
 
   auto merge_units = split_tasks(tasks, buffer_.size());
 
@@ -105,11 +106,11 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
     }
 
     // timeline
-    if (context.enable_timeline.load()) {
-      for (size_t i = unit.begin; i < unit.end; ++i) {
-        timeline->end(tasks[i].name, kDoAllReduceEvent);
-      }
-    }
+    // if (context.enable_timeline.load()) {
+    //   for (size_t i = unit.begin; i < unit.end; ++i) {
+    //     timeline->end(tasks[i].name, kDoAllReduceEvent);
+    //   }
+    // }
   }
 }
 

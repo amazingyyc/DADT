@@ -28,20 +28,21 @@ enum class LockTensorStatus: int {
   kInFetch      = 2,
 };
 
+
 class LockTensor: public Tensor {
 private:
   // unique name
   std::string name_;
 
   // represent the tesnor status
-  SpinLock status_;
+  SpinStatusLock status_;
 
 public:
-  LockTensor(std::shared_ptr<TensorStorage> storage, 
-            size_t offset, 
-            Shape shape, 
+  LockTensor(std::shared_ptr<TensorStorage> storage,
+            size_t offset,
+            Shape shape,
             ElementType type,
-            std::string name, 
+            std::string name,
             LockTensorStatus initialize_status);
 
   std::string name();
