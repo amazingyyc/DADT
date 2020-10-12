@@ -45,6 +45,12 @@ void local_barrier();
 
 }
 
+// put a job into threadpool
+void thread_pool_enqueue(std::function<void()> &&task);
+
+// wait all task in thread pool finish
+void thread_pool_wait();
+
 // put a task in queue
 void enqueue_task(Task &&t);
 

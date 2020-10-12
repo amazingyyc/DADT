@@ -3,6 +3,38 @@
 
 namespace dadt {
 
+Barrier::Barrier(): counter_(0) {
+}
+
+void Barrier::increase() {
+  counter_++;
+}
+
+void Barrier::decrease() {
+  notify();
+}
+
+void Barrier::notify() {
+  auto after_val = counter_.fetch_sub(1) - 1;
+
+  if (0 != after_val) {
+    ARGUMENT_CHECK(after_val >= 0, "after_val is:" << after_val << ", but must >= 0");
+
+    return;
+  }
+
+  std::unique_lock<std::mutex> lock(mutex_);
+  cv_.notify_all();
+}
+
+void Barrier::wait() {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  while (0 != counter_.load()) {
+    cv_.wait(lock);
+  }
+}
+
 ThreadPool::ThreadPool(): stopped_(false) {
 }
 
@@ -14,22 +46,24 @@ void ThreadPool::init(int thread_count) {
   }
 }
 
-// put a task in thread pool
 void ThreadPool::enqueue(std::function<void()> &&task) {
-  ARGUMENT_CHECK(false == stopped_, "the thread pool has been stopped");
-  
-  {
-    // try to get mutex
-    std::unique_lock<std::mutex> lock(mutex_);
+  ARGUMENT_CHECK(false == stopped_.load(), "the thread pool has been stopped");
 
-    // add to queue
-    task_queue_.emplace(task);
-  }
+  // increase barrier
+  barrier_.increase();
 
+  // put task in queue
+  ARGUMENT_CHECK(task_queue_.enqueue(task), "enqueue task to threadpool get error!");
+
+  // notify one thread
+  std::unique_lock<std::mutex> lock(mutex_);
   cond_var_.notify_one();
 }
 
-// stop the thread pool
+void ThreadPool::wait() {
+  barrier_.wait();
+}
+
 void ThreadPool::stop() {
   stopped_ = true;
 
@@ -42,26 +76,27 @@ void ThreadPool::stop() {
 
 void ThreadPool::do_task() {
   while (true) {
-    // try to get mutex
-    std::unique_lock<std::mutex> lock(mutex_);
+    // try to get a task
+    std::function<void()> task;
 
-    // wait
-    cond_var_.wait(lock, [this] {
-      return this->stopped_ || !this->task_queue_.empty();
-    });
-
-    // whether the queue has task
-    if (!task_queue_.empty()) {
-      auto task = std::move(task_queue_.front());
-      task_queue_.pop();
-
-      // unlock the mutex
-      lock.unlock();
-
+    // task_queue_ is a lock-free queue, so no need get the mutex.
+    if (task_queue_.try_dequeue(task)) {
       // run task
       task();
-    } else if (this->stopped_) {
+
+      // notify barrier
+      barrier_.notify();
+    } else if (this->stopped_.load()) {
+      // if has been stopped just break;
       break;
+    } else {
+      // when not get a task and not stopped, need to sleep.
+      std::unique_lock<std::mutex> lock(mutex_);
+
+      // wait
+      cond_var_.wait(lock, [this] {
+        return this->stopped_ || (0 != this->task_queue_.size_approx());
+      });
     }
   }
 }

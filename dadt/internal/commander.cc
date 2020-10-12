@@ -33,7 +33,7 @@ Commander::Commander() : initialized_(false) {}
 
 // initialize context
 // the funtion should call in background thread
-void Commander::init_context(Config config) {
+void Commander::init_context(const Config& config) {
   int thread_required = MPI_THREAD_MULTIPLE;
   int thread_provided;
 
@@ -113,10 +113,7 @@ void Commander::init_context(Config config) {
   auto gpu_device = get_gpu_device(context_.gpu_device_id);
 #endif
 
-  // set cycle time
-  if (config.cycle_duration_ms < 0) {
-    config.cycle_duration_ms = 5;
-  }
+  ARGUMENT_CHECK(config.cycle_duration_ms >= 0, "config.cycle_duration_ms must >= 0");
 
   // convert to microsecond
   context_.cycle_duration_us      = config.cycle_duration_ms * 1000;
@@ -193,7 +190,7 @@ void Commander::clear_context() {
 }
 
 // init the commander
-void Commander::init(Config config) {
+void Commander::init(const Config& config) {
   ARGUMENT_CHECK(false == initialized_, "can not initialize twice");
 
   // init a thread and wait finish init context
@@ -362,7 +359,7 @@ bool Commander::worker_do_task() {
 }
 
 // used for background_thread_ to do the task
-void Commander::worker_do_cycle(Config config) {
+void Commander::worker_do_cycle(const Config& config) {
   // init context
   init_context(config);
 

@@ -327,11 +327,116 @@ torch::Tensor all_reduce(torch::Tensor input, const std::string &name, float mul
   }
 }
 
+#ifdef HAVE_NCCL
+// AllReduce GPU async, will put the waiting and copy into threadpool
+void all_reduce_gpu_async(
+  torch::Tensor input,
+  torch::Tensor output,
+  const std::string &name,
+  float multiplier) {
+  // Get current cuda stream.
+  auto cuda_stream = c10::cuda::getCurrentCUDAStream(input.device().index()).stream();
+
+  // waiting/copy will execute in a threadpool
+  auto job = [=]() {
+    // get midway tensor
+    auto midway_tensor = dadt::obtain_midway_tensor(dadt::kAllReduceTaskType, name);
+
+    if (nullptr == midway_tensor) {
+      auto dims = get_shape_vector(input);
+      auto element_type = get_element_type(input);
+
+      midway_tensor = dadt::create_midway_tensor(dadt::kAllReduceTaskType, name, dims, element_type);
+    }
+
+    // wait midway tensor finish allreduce
+    midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
+
+    // check the midway tensor type
+    if (dadt::DeviceType::CPU == midway_tensor->device()->device_type()) {
+      // copy memory from cpu tensor to output
+      CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
+                                midway_tensor->ptr(),
+                                midway_tensor->num_bytes(),
+                                cudaMemcpyHostToDevice,
+                                cuda_stream));
+
+      // copy input to cpu tensor
+      CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
+                                input.data_ptr(),
+                                midway_tensor->num_bytes(),
+                                cudaMemcpyDeviceToHost,
+                                cuda_stream));
+    } else {
+      // copy memory from gpu tensor to output
+      CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
+                                midway_tensor->ptr(),
+                                midway_tensor->num_bytes(),
+                                cudaMemcpyDeviceToDevice,
+                                cuda_stream));
+
+      // copy input to gpu tensor
+      CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
+                                input.data_ptr(),
+                                midway_tensor->num_bytes(),
+                                cudaMemcpyDeviceToDevice,
+                                cuda_stream));
+    }
+
+    // wait memory copy finish
+    auto wait_event = dadt::obtain_cuda_event();
+
+    // put wait event into stream and wait event finish
+    CUDA_CALL(cudaEventRecord(wait_event, cuda_stream));
+    CUDA_CALL(cudaEventSynchronize(wait_event));
+
+    // for now the midway result has been copy to output and input has copy in midway tesnor
+    // when copy finish create a task put into task queue to do all reduce
+    dadt::Task task;
+    task.name = name;
+    task.tensor = midway_tensor;
+    task.task_type = dadt::kAllReduceTaskType;
+
+    task.done = [midway_tensor] {
+      midway_tensor->wait(dadt::LockTensorStatus::kInExecute, dadt::LockTensorStatus::kWaitForFetch);
+    };
+
+    // change tensor status
+    midway_tensor->wait(dadt::LockTensorStatus::kInFetch, dadt::LockTensorStatus::kInExecute);
+
+    // put task in queue
+    dadt::enqueue_task(std::move(task));
+  };
+
+  // put the job into threadpool
+  dadt::thread_pool_enqueue(std::move(job));
+}
+#endif
+
+void all_reduce_async(torch::Tensor input, torch::Tensor output, const std::string &name, float multiplier) {
+  if (input.is_cuda()) {
+#ifdef HAVE_NCCL
+    return all_reduce_gpu_async(input, output, name, multiplier);
+#else
+    RUNTIME_ERROR("dadt not build with GPU, please rebuild it with GPU.");
+#endif
+  } else {
+    // return all_reduce_cpu(input, name, multiplier);
+    RUNTIME_ERROR("not write");
+  }
+}
+
+// wait all reduce finish
+void wait_all_reduce_finish() {
+  dadt::thread_pool_wait();
+}
 
 // Define API in python module.
 PYBIND11_MODULE(dadt_pytorch, m) {
   m.def("broad_cast", &broad_cast, "broad_cast tensor from rank-0 to other ranks.");
   m.def("all_reduce", &all_reduce, "all_reduce cross all rank.");
+  //m.def("all_reduce_async", &all_reduce_async, "all_reduce cross all rank async, must call sync before use grad.");
+  //m.def("wait_all_reduce_finish", &wait_all_reduce_finish, "wait all reduce finish.");
 }
 
 

@@ -52,7 +52,7 @@ private:
 
 private:
   // initialize context
-  void init_context(Config);
+  void init_context(const Config&);
 
   // clean context, call in the same thread with init_context
   void clear_context();
@@ -65,7 +65,7 @@ public:
   Commander();
 
   // init the commander
-  void init(Config config);
+  void init(const Config& config);
 
   // shutdown background thread
   void shutdown();
@@ -114,7 +114,7 @@ public:
   std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
   
   // used for background_thread_ to do the task
-  void worker_do_cycle(Config config);
+  void worker_do_cycle(const Config& config);
 };
 
 }

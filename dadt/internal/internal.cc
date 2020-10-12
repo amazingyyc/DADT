@@ -1,11 +1,15 @@
 #include "definition.h"
 #include "internal.h"
 #include "commander.h"
+#include "thread_pool.h"
 
 namespace dadt {
 
 // the commander
 dadt::Commander commander_;
+
+// a thread pool, use to run some async job
+dadt::ThreadPool thread_pool_;
 
 // initialize dadt
 void init(Config config) {
@@ -52,6 +56,16 @@ void local_barrier() {
   commander_.local_barrier();
 }
 
+// put a job into threadpool
+void thread_pool_enqueue(std::function<void()> &&task) {
+  thread_pool_.enqueue(std::move(task));
+}
+
+// wait all task in thread pool finish
+void thread_pool_wait() {
+  thread_pool_.wait();
+}
+
 // put a task in queue
 void enqueue_task(Task &&t) {
   commander_.enqueue_task(std::move(t));
@@ -77,10 +91,11 @@ std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string
 }
 
 // get a interim tensor by TaskType
-std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type,
-                                          std::string name,
-                                          std::vector<int> dims,
-                                          ElementType element_type) {
+std::shared_ptr<LockTensor> create_midway_tensor(
+  TaskType task_type,
+  std::string name,
+  std::vector<int> dims,
+  ElementType element_type) {
   return commander_.create_midway_tensor(task_type, name, dims, element_type);
 }
 
