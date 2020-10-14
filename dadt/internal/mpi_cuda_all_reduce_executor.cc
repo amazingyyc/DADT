@@ -16,6 +16,16 @@ MPICUDAAllReduceExecutor::~MPICUDAAllReduceExecutor() {
   CUDA_CALL(cudaEventDestroy(finish_event_));
 }
 
+bool MPICUDAAllReduceExecutor::is_cuda_midway_tensor() {
+  return true;
+}
+
+void MPICUDAAllReduceExecutor::insert_midway_tensor(std::string name, std::shared_ptr<LockTensor> tensor) {
+  SpinLockHandler handler(pool_locker_);
+
+  tensor_pool_[name] = tensor;
+}
+
 // whether already create a midway tensor
 std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::obtain_midway_tensor(std::string name) {
   SpinLockHandler handler(pool_locker_);
@@ -27,18 +37,16 @@ std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::obtain_midway_tensor(std::
   return nullptr;
 }
 
-std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+std::shared_ptr<LockTensor> MPICUDAAllReduceExecutor::create_midway_tensor(std::string name, Shape shape, ElementType element_type) {
   SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     auto tensor = tensor_pool_[name];
 
-    ARGUMENT_CHECK(tensor->shape() == Shape(dims) && tensor->element_type() == element_type, "get tesnor error!");
+    ARGUMENT_CHECK(tensor->shape() == shape && tensor->element_type() == element_type, "get tesnor error!");
 
     return tensor;
   }
-
-  Shape shape(dims);
 
   auto storage = TensorStorage::create(gpu_device_, shape.size() * element_type.byte_width());
 
@@ -57,7 +65,7 @@ void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vec
 
   // check the element type and tensor device type
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "mpi cuda all reduce executor need tensor is GPU");
+    ARGUMENT_CHECK(task.tensor->is_cuda(), "mpi cuda all reduce executor need tensor is GPU");
     ARGUMENT_CHECK(element_type == task.tensor->element_type(), "mpi cuda all reduce executor only support float/double");
   }
 
@@ -70,6 +78,13 @@ void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vec
   auto merge_units = split_tasks(tasks, buffer_.size());
 
   for (auto &unit : merge_units) {
+    // before callback
+    for (size_t i = unit.begin; i < unit.end; ++i) {
+      if (tasks[i].before) {
+        tasks[i].before();
+      }
+    }
+
     void *recvbuf = nullptr;
     size_t count = 0;
 
@@ -125,7 +140,9 @@ void MPICUDAAllReduceExecutor::operator()(const Context &context, const std::vec
 
     // midway tensor callback
     for (size_t i = unit.begin; i < unit.end; ++i) {
-      tasks[i].done();
+      if (tasks[i].done) {
+        tasks[i].done();
+      }
     }
 
     // timeline

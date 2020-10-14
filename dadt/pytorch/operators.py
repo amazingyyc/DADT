@@ -13,8 +13,8 @@ def all_reduce(x, name, multiplier=1.0):
   return native_ops.all_reduce(x, name, multiplier)
 
 '''do allreduce async for all rank'''
-def all_reduce_async(x, y, name, multiplier=1.0):
-  native_ops.all_reduce_async(x, y, name, multiplier)
+# def all_reduce_async(x, y, name, multiplier=1.0):
+#   native_ops.all_reduce_async(x, y, name, multiplier)
 
 '''wait allreduce finish'''
 # def wait_all_reduce_finish():
@@ -50,7 +50,6 @@ class DistributedOptimizer:
         if p.requires_grad:
           # use short string, b means broadcast
           name = '{}.b.{}'.format(self._index, broad_cast_idx)
-
           p.data = broad_cast(p.data, name)
 
           broad_cast_idx += 1
@@ -74,9 +73,7 @@ class DistributedOptimizer:
       return all_reduce(grad, name, self._multiplier)
       # name = self._parameter_names[p]
       # new_grad = torch.zeros_like(grad)
-
       # all_reduce_async(grad, new_grad, name, self._multiplier)
-
       # return new_grad
 
     return hook

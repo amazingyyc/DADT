@@ -30,6 +30,9 @@ struct Task {
   // a tesnor used for this task, for shutdown it is null
   std::shared_ptr<LockTensor> tensor;
 
+  // call this before executor
+  std::function<void()> before;
+
   // when finish call this function
   std::function<void()> done;
 };

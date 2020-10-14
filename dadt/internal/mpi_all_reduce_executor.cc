@@ -8,6 +8,12 @@ MPIAllReduceExecutor::MPIAllReduceExecutor(std::shared_ptr<Device> cpu_device, s
   buffer_.reserve(buffer_size);
 }
 
+void MPIAllReduceExecutor::insert_midway_tensor(std::string name, std::shared_ptr<LockTensor> tensor) {
+  SpinLockHandler handler(pool_locker_);
+
+  tensor_pool_[name] = tensor;
+}
+
 std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::string name) {
   SpinLockHandler handler(pool_locker_);
 
@@ -18,19 +24,17 @@ std::shared_ptr<LockTensor> MPIAllReduceExecutor::obtain_midway_tensor(std::stri
   return nullptr;
 }
 
-std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+std::shared_ptr<LockTensor> MPIAllReduceExecutor::create_midway_tensor(std::string name, Shape shape, ElementType element_type) {
   SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it
     auto tensor = tensor_pool_[name];
 
-    ARGUMENT_CHECK(tensor->shape() == Shape(dims) && tensor->element_type() == element_type, "get tensor error!");
+    ARGUMENT_CHECK(tensor->shape() == shape && tensor->element_type() == element_type, "get tensor error!");
 
     return tensor;
   }
-
-  Shape shape(dims);
 
   // create a CPU tensor
   auto storage = TensorStorage::create(cpu_device_, shape.size() * element_type.byte_width());
@@ -51,7 +55,7 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
       "MPIAllReduceExecutor only support float/double, but get:" << element_type.name());
 
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type() &&
+    ARGUMENT_CHECK(task.tensor->is_cpu() &&
                   element_type == task.tensor->element_type(),
                   "mpi all reduce only support cpu tensor, element type must be float/double")
   }
@@ -64,6 +68,13 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
   auto merge_units = split_tasks(tasks, buffer_.size());
 
   for (auto &unit : merge_units) {
+    // before tensor
+    for (size_t i = unit.begin; i < unit.end; ++i) {
+      if (tasks[i].before) {
+        tasks[i].before();
+      }
+    }
+
     void *recvbuf = nullptr;
     int count = 0;
 
@@ -102,7 +113,9 @@ void MPIAllReduceExecutor::operator()(const Context &context, const std::vector<
 
     // callback tensor
     for (size_t i = unit.begin; i < unit.end; ++i) {
-      tasks[i].done();
+      if (tasks[i].done) {
+        tasks[i].done();
+      }
     }
 
     // timeline

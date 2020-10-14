@@ -8,13 +8,15 @@ MPICUDABroadCastExecutor::MPICUDABroadCastExecutor(std::shared_ptr<Device> gpu_d
 MPICUDABroadCastExecutor::~MPICUDABroadCastExecutor() {
 }
 
+bool MPICUDABroadCastExecutor::is_cuda_midway_tensor() {
+  return true;
+}
+
 std::shared_ptr<LockTensor> MPICUDABroadCastExecutor::obtain_midway_tensor(std::string name) {
   return nullptr;
 }
 
-std::shared_ptr<LockTensor> MPICUDABroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  Shape shape(dims);
-
+std::shared_ptr<LockTensor> MPICUDABroadCastExecutor::create_midway_tensor(std::string name, Shape shape, ElementType element_type) {
   auto storage = TensorStorage::create(gpu_device_, shape.size() * element_type.byte_width());
 
   auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kInFetch);
@@ -28,7 +30,11 @@ void MPICUDABroadCastExecutor::operator()(const Context &context, const std::vec
   // }
 
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "MPICUDABroadCastExecutor only support GPU tensor");
+    ARGUMENT_CHECK(task.tensor->is_cuda(), "MPICUDABroadCastExecutor only support GPU tensor");
+
+    if (task.before) {
+      task.before();
+    }
 
     void *sendbuf = task.tensor->ptr();
     int count = task.tensor->size();
@@ -39,7 +45,9 @@ void MPICUDABroadCastExecutor::operator()(const Context &context, const std::vec
     MPI_CALL(MPI_Bcast(sendbuf, count, mpi_dtype, 0, context.world_comm));
 
     // finish callback
-    task.done();
+    if (task.done) {
+      task.done();
+    }
 
     // if (context.enable_timeline.load()) {
     //   timeline->end(task.name, kDoBroadCastEvent);

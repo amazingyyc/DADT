@@ -39,10 +39,14 @@ public:
 
   ~NCCLAllReduceExecutor();
 
+  bool is_cuda_midway_tensor() override;
+
+  void insert_midway_tensor(std::string name, std::shared_ptr<LockTensor> tensor) override;
+
   // if has already create a midway tensor
   std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) override;
 
-  std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) override;
+  std::shared_ptr<LockTensor> create_midway_tensor(std::string name, Shape shape, ElementType element_type) override;
 
   void operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) override;
 };

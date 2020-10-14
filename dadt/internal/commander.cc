@@ -309,6 +309,18 @@ cudaEvent_t Commander::obtain_cuda_event() {
 }
 #endif
 
+bool Commander::is_cuda_midway_tensor(TaskType task_type) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
+  return task_executors_[task_type]->is_cuda_midway_tensor();
+}
+
+void Commander::insert_midway_tensor(TaskType task_type, std::string name, std::shared_ptr<LockTensor> tensor) {
+  ARGUMENT_CHECK(initialized(), "the commander has not initialized");
+
+  task_executors_[task_type]->insert_midway_tensor(name, tensor);
+}
+
 std::shared_ptr<LockTensor> Commander::obtain_midway_tensor(TaskType task_type, std::string name) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
@@ -318,11 +330,11 @@ std::shared_ptr<LockTensor> Commander::obtain_midway_tensor(TaskType task_type, 
 // get a interim tensor by TaskType
 std::shared_ptr<LockTensor> Commander::create_midway_tensor(TaskType task_type,
                                                             std::string name,
-                                                            std::vector<int> dims,
+                                                            Shape shape,
                                                             ElementType element_type) {
   ARGUMENT_CHECK(initialized(), "the commander has not initialized");
 
-  return task_executors_[task_type]->create_midway_tensor(name, dims, element_type);
+  return task_executors_[task_type]->create_midway_tensor(name, shape, element_type);
 }
 
 // get the message from the queue and allreduce cross all node

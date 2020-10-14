@@ -12,13 +12,15 @@ NCCLBroadCastExecutor::~NCCLBroadCastExecutor() {
   CUDA_CALL(cudaEventDestroy(finish_event_));
 }
 
+bool NCCLBroadCastExecutor::is_cuda_midway_tensor() {
+  return true;
+}
+
 std::shared_ptr<LockTensor> NCCLBroadCastExecutor::obtain_midway_tensor(std::string name) {
   return nullptr;
 }
 
-std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  Shape shape(dims);
-
+std::shared_ptr<LockTensor> NCCLBroadCastExecutor::create_midway_tensor(std::string name, Shape shape, ElementType element_type) {
   auto storage = TensorStorage::create(gpu_device_, shape.size() * element_type.byte_width());
 
   auto tensor = std::make_shared<LockTensor>(storage, 0, shape, element_type, name, LockTensorStatus::kInFetch);
@@ -32,9 +34,16 @@ void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector
   //   timeline->begin(tasks, kDoBroadCastEvent);
   // }
 
+  // call before callback
+  for (auto &task : tasks) {
+    if (task.before) {
+      task.before();
+    }
+  }
+
   // for broad cast we will broad one by one
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "NCCLBroadCastExecutor only support GPU tensor");
+    ARGUMENT_CHECK(task.tensor->is_cuda(), "NCCLBroadCastExecutor only support GPU tensor");
 
     void *sendbuf = task.tensor->ptr();
     int count = task.tensor->size();
@@ -50,7 +59,9 @@ void NCCLBroadCastExecutor::operator()(const Context &context, const std::vector
 
   // callback tensor
   for (auto &task : tasks) {
-    task.done();
+    if (task.done) {
+      task.done();
+    }
   }
 
   // end broad cast timeline

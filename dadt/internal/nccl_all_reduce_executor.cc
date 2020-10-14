@@ -16,6 +16,16 @@ NCCLAllReduceExecutor::~NCCLAllReduceExecutor() {
   CUDA_CALL(cudaEventDestroy(finish_event_));
 }
 
+void NCCLAllReduceExecutor::insert_midway_tensor(std::string name, std::shared_ptr<LockTensor> tensor) {
+  SpinLockHandler handler(pool_locker_);
+
+  tensor_pool_[name] = tensor;
+}
+
+bool NCCLAllReduceExecutor::is_cuda_midway_tensor() {
+  return true;
+}
+
 std::shared_ptr<LockTensor> NCCLAllReduceExecutor::obtain_midway_tensor(std::string name) {
   SpinLockHandler handler(pool_locker_);
 
@@ -26,19 +36,17 @@ std::shared_ptr<LockTensor> NCCLAllReduceExecutor::obtain_midway_tensor(std::str
   return nullptr;
 }
 
-std::shared_ptr<LockTensor> NCCLAllReduceExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
+std::shared_ptr<LockTensor> NCCLAllReduceExecutor::create_midway_tensor(std::string name, Shape shape, ElementType element_type) {
   SpinLockHandler handler(pool_locker_);
 
   if (tensor_pool_.find(name) != tensor_pool_.end()) {
     // have created the tensor, resue it
     auto tensor = tensor_pool_[name];
 
-    ARGUMENT_CHECK(tensor->shape() == Shape(dims) && tensor->element_type() == element_type, "get tesnor error!");
+    ARGUMENT_CHECK(tensor->shape() == shape && tensor->element_type() == element_type, "get tesnor error!");
 
     return tensor;
   }
-
-  Shape shape(dims);
 
   auto storage = TensorStorage::create(gpu_device_, shape.size() * element_type.byte_width());
 
@@ -57,7 +65,7 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
 
   // check the element type and tensor device type
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::GPU == task.tensor->device()->device_type(), "NCCL all reduce need tensor is GPU");
+    ARGUMENT_CHECK(task.tensor->is_cuda(), "NCCL all reduce need tensor is GPU");
     ARGUMENT_CHECK(element_type == task.tensor->element_type(), "NCCL all reduce only support half/float/double");
   }
 
@@ -70,6 +78,13 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
   auto merge_units = split_tasks(tasks, buffer_.size());
 
   for (auto &unit : merge_units) {
+    // before do allreduce, should call before function of task
+    for (size_t i = unit.begin; i < unit.end; ++i) {
+      if (tasks[i].before) {
+        tasks[i].before();
+      }
+    }
+
     void *recvbuf = nullptr;
     size_t count = 0;
 
@@ -122,7 +137,9 @@ void NCCLAllReduceExecutor::operator()(const Context &context, const std::vector
 
     // callback tensor
     for (size_t i = unit.begin; i < unit.end; ++i) {
-      tasks[i].done();
+      if (tasks[i].done) {
+        tasks[i].done();
+      }
     }
 
     // timeline

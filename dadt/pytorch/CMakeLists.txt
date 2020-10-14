@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 14)
 # inlude python 
 include_directories(${PYTORCH_INCLUDE_DIRS})
 
-add_library(dadt_pytorch SHARED operators.cc)
+add_library(dadt_pytorch SHARED pytorch_utils.cc operators.cc pytorch_tensor.cc)
 
 if (HAVE_NCCL)
   target_link_libraries(dadt_pytorch dadt ${CUDA_LIB_PATHS} ${NCCL_LIB_PATHS} ${PYTORCH_LIB_PATHS})

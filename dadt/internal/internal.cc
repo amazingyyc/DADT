@@ -86,17 +86,24 @@ cudaEvent_t obtain_cuda_event() {
 }
 #endif
 
+bool is_cuda_midway_tensor(TaskType task_type) {
+  commander_.is_cuda_midway_tensor(task_type);
+}
+
+void insert_midway_tensor(TaskType task_type, std::string name, std::shared_ptr<LockTensor> tensor) {
+  commander_.insert_midway_tensor(task_type, name, tensor);
+}
+
 std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name) {
   return commander_.obtain_midway_tensor(task_type, name);
 }
 
-// get a interim tensor by TaskType
 std::shared_ptr<LockTensor> create_midway_tensor(
   TaskType task_type,
   std::string name,
-  std::vector<int> dims,
+  Shape shape,
   ElementType element_type) {
-  return commander_.create_midway_tensor(task_type, name, dims, element_type);
+  return commander_.create_midway_tensor(task_type, name, shape, element_type);
 }
 
 }

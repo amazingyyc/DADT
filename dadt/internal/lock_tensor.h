@@ -8,8 +8,10 @@
 
 #include "device.h"
 #include "task.h"
-#include "tensor.h"
 #include "spin_lock.h"
+#include "shape.h"
+#include "element_type.h"
+#include "tensor_storage.h"
 
 namespace dadt {
 
@@ -29,26 +31,62 @@ enum class LockTensorStatus: int {
 };
 
 
-class LockTensor: public Tensor {
-private:
+class LockTensor {
+protected:
   // unique name
   std::string name_;
 
   // represent the tesnor status
   SpinStatusLock status_;
 
-public:
-  LockTensor(std::shared_ptr<TensorStorage> storage,
-            size_t offset,
-            Shape shape,
-            ElementType type,
-            std::string name,
-            LockTensorStatus initialize_status);
+  // memory
+  std::shared_ptr<TensorStorage> storage_;
 
-  std::string name();
+  // offset of tensor
+  size_t offset_;
+
+  // the tensor shape
+  Shape shape_;
+
+  // element type
+  ElementType element_type_;
+
+public:
+  LockTensor(
+    std::shared_ptr<TensorStorage> storage,
+    size_t offset,
+    Shape shape,
+    ElementType element_type,
+    std::string name,
+    LockTensorStatus initialize_status);
 
   // wait the tensor is expected_status/new_status and change it to new_status
   void wait(LockTensorStatus expected_status, LockTensorStatus new_status);
+
+  // get name
+  const std::string& name() const;
+
+  const Shape& shape() const;
+
+  const ElementType& element_type() const;
+
+  bool is_scalar() const;
+  int size() const;
+  int num_bytes() const;
+  int dim(int) const;
+
+  bool is_cpu() const;
+
+  // return GPU device id is CPU return -1
+  virtual int device_id() const;
+
+  // whether is a cuda tensor
+  virtual bool is_cuda() const;
+
+  // get memory pointer
+  virtual void* ptr();
+  virtual void* ptr() const;
+
 };
 
 }
