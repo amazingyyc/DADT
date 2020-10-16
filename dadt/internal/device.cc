@@ -6,10 +6,10 @@
 
 #include <iostream>
 #include <unordered_map>
-#include <mutex>
 
 #include "definition.h"
 #include "device.h"
+#include "spin_lock.h"
 
 namespace dadt {
 
@@ -101,11 +101,11 @@ void Device::zero(void *ptr, size_t size) {
   allocator_->zero(ptr, size);
 }
 
-std::mutex device_mutex_;
+SpinLock device_locker_;
 std::unordered_map<int, std::shared_ptr<Device>> devices_;
 
 std::shared_ptr<Device> get_device(int device_id) {
-  std::unique_lock<std::mutex> lock(device_mutex_);
+  SpinLockHandler handler(device_locker_);
 
   if (device_id < 0) {
     device_id = -1;

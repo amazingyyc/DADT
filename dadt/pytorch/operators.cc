@@ -77,8 +77,8 @@ torch::Tensor broad_cast_gpu(torch::Tensor input, const std::string &name) {
                               cuda_stream.stream()));
   } else {
     // Copy GPU memory to GPU
-    //ARGUMENT_CHECK(input.device().index() == midway_tensor->device()->device_id(),
-    //  "Pytorch GPU device index is not same with DADT");
+    ARGUMENT_CHECK(input.device().index() == midway_tensor->device_id(),
+     "Pytorch GPU device index is not same with DADT");
 
     CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
                               input.data_ptr(),
@@ -124,8 +124,8 @@ torch::Tensor broad_cast_gpu(torch::Tensor input, const std::string &name) {
                               cudaMemcpyHostToDevice,
                               cuda_stream.stream()));
   } else {
-    //ARGUMENT_CHECK(output.device().index() == midway_tensor->device()->device_id(),
-    //  "Pytorch GPU device index is not same with DADT");
+    ARGUMENT_CHECK(output.device().index() == midway_tensor->device_id(),
+     "Pytorch GPU device index is not same with DADT");
 
     CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
                               midway_tensor->ptr(),
@@ -154,33 +154,33 @@ torch::Tensor broad_cast(torch::Tensor input, const std::string &name) {
   }
 }
 
-// AllReduce CPU
+// pytorch train on cpu and midway tenosr is cpu too
 torch::Tensor all_reduce_cpu(torch::Tensor input, const std::string &name, float multiplier) {
-  // create output
-  auto output = torch::empty_like(input);
-
   // get midway tensor
   auto midway_tensor = dadt::obtain_midway_tensor(dadt::kAllReduceTaskType, name);
 
   if (nullptr == midway_tensor) {
-    auto shape = get_shape_vector(input);
-    auto element_type = get_element_type(input);
+    auto pytorch_tensor = torch::zeros_like(input);
 
-    midway_tensor = dadt::create_midway_tensor(dadt::kAllReduceTaskType, name, shape, element_type);
+    midway_tensor = std::make_shared<PytorchTensor>(
+      pytorch_tensor,
+      name,
+      dadt::LockTensorStatus::kWaitForFetch);
+
+    dadt::insert_midway_tensor(dadt::kAllReduceTaskType, name, midway_tensor);
   }
 
-  // CPU op only support CPU tensor 
-  ARGUMENT_CHECK(midway_tensor->is_cpu(), 
-    "CPU op must use CPU tensor, choose a MPI executor to do CPU all reduce.");
+  // get pytorch tensor pointer
+  PytorchTensor *midway_tensor_ptr = dynamic_cast<PytorchTensor*>(midway_tensor.get());
 
   // wait midway tensor finish task
   midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
 
-  // copy to output
-  std::memcpy((void*) output.data_ptr(), midway_tensor->ptr(), midway_tensor->num_bytes());
+  // when finish allreduce get output
+  auto output = midway_tensor_ptr->torch_tensor();
 
-  // copy input to midway_tensor
-  std::memcpy(midway_tensor->ptr(), input.data_ptr(), midway_tensor->num_bytes());
+  // put input in
+  midway_tensor_ptr->torch_tensor(input);
 
   // for now the midway result has been copy to output and input has copy in midway tesnor
   // when copy finish create a task put into task queue to do all reduce
@@ -203,15 +203,12 @@ torch::Tensor all_reduce_cpu(torch::Tensor input, const std::string &name, float
 }
 
 #ifdef HAVE_NCCL
-// AllReduce GPU
-torch::Tensor all_reduce_gpu(torch::Tensor input, const std::string &name, float multiplier) {
-  // Get current cuda stream.
-  auto cuda_stream = c10::cuda::getCurrentCUDAStream(input.device().index());
+// pytorch use GPU but executor need CPU midwaytensor
+torch::Tensor all_reduce_gpu_midway_cpu(torch::Tensor input, const std::string &name, float multiplier) {
+  // Get current cuda stream from pytorch.
+  auto cuda_stream = c10::cuda::getCurrentCUDAStream(input.device().index()).stream();
 
-  // create output
-  auto output = torch::empty_like(input);
-
-  // get midway tensor
+  // try to get midway tensor maybe get nullptr
   auto midway_tensor = dadt::obtain_midway_tensor(dadt::kAllReduceTaskType, name);
 
   if (nullptr == midway_tensor) {
@@ -224,42 +221,27 @@ torch::Tensor all_reduce_gpu(torch::Tensor input, const std::string &name, float
   // wait midway tensor finish task
   midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
 
-  // check the midway tensor type
-  if (midway_tensor->is_cpu()) {
-    // copy memory from cpu tensor to output
-    CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
-                              midway_tensor->ptr(),
-                              midway_tensor->num_bytes(),
-                              cudaMemcpyHostToDevice,
-                              cuda_stream.stream()));
+  auto output = torch::empty_like(input);
 
-    // copy input to cpu tensor
-    CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
-                              input.data_ptr(),
-                              midway_tensor->num_bytes(),
-                              cudaMemcpyDeviceToHost,
-                              cuda_stream.stream()));
-  } else {
-    // copy memory from gpu tensor to output
-    CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
-                              midway_tensor->ptr(),
-                              midway_tensor->num_bytes(),
-                              cudaMemcpyDeviceToDevice,
-                              cuda_stream.stream()));
+  // copy midway tensor to output
+  CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
+                            midway_tensor->ptr(),
+                            midway_tensor->num_bytes(),
+                            cudaMemcpyHostToDevice,
+                            cuda_stream));
 
-    // copy input to gpu tensor
-    CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
-                              input.data_ptr(),
-                              midway_tensor->num_bytes(),
-                              cudaMemcpyDeviceToDevice,
-                              cuda_stream.stream()));
-  }
+  // copy input to midway tensor
+  CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
+                            input.data_ptr(),
+                            midway_tensor->num_bytes(),
+                            cudaMemcpyDeviceToHost,
+                            cuda_stream));
 
   // wait memory copy finish
   auto wait_event = dadt::obtain_cuda_event();
 
   // put wait event into stream and wait event finish
-  CUDA_CALL(cudaEventRecord(wait_event, cuda_stream.stream()));
+  CUDA_CALL(cudaEventRecord(wait_event, cuda_stream));
   CUDA_CALL(cudaEventSynchronize(wait_event));
 
   // for now the midway result has been copy to output and input has copy in midway tesnor
@@ -283,22 +265,16 @@ torch::Tensor all_reduce_gpu(torch::Tensor input, const std::string &name, float
 }
 
 // pytorch is trainning on GPU and the midway tensor is GPU too
-torch::Tensor all_reduce_gpu_midway_tensor_gpu(torch::Tensor input, const std::string &name, float multiplier) {
+// in this case will reuse torchtensor avoid memory copy
+torch::Tensor all_reduce_gpu_midway_gpu(torch::Tensor input, const std::string &name, float multiplier) {
   // Get current cuda stream from pytorch.
   auto cuda_stream = c10::cuda::getCurrentCUDAStream(input.device().index()).stream();
-
-  // create a CUDA event
-  cudaEvent_t wait_input_event;
-  CUDA_CALL(cudaEventCreate(&wait_input_event));
-
-  // put wait event into stream, when the event finish means the input's memory has been ready.
-  CUDA_CALL(cudaEventRecord(wait_input_event, cuda_stream));
 
   // try to get midway tensor maybe get nullptr
   auto midway_tensor = dadt::obtain_midway_tensor(dadt::kAllReduceTaskType, name);
 
   if (nullptr == midway_tensor) {
-    // if midway_tensor is empty means first time. will create a zero tensor.
+    // if midway_tensor is empty means the first time. will create a zero tensor.
     auto pytorch_tensor = torch::zeros_like(input);
 
     // create a midway tensor and store it
@@ -311,32 +287,35 @@ torch::Tensor all_reduce_gpu_midway_tensor_gpu(torch::Tensor input, const std::s
   // get pytorch tensor pointer
   PytorchTensor *midway_tensor_ptr = dynamic_cast<PytorchTensor*>(midway_tensor.get());
 
+  // than get cuda_event insert to cuda stream
+  cudaEvent_t wait_input_event = midway_tensor_ptr->cuda_event();
+
+  // put wait event into stream, when the event finish means the input's memory has been ready.
+  CUDA_CALL(cudaEventRecord(wait_input_event, cuda_stream));
+
   // wait midway tensor finish allreduce
   midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
 
-  // get output
+  // when finish allreduce get output
   auto output = midway_tensor_ptr->torch_tensor();
 
   // put input to midway tensor
-  // at here maybe the input still not finish backward, it means the input memory maybe dirty
-  // we need wait input finish before do allreduce on input
+  // put input into midway tensor does not mean the input is ready, if want to use it, must wait wait_input_event finish
   midway_tensor_ptr->torch_tensor(input);
 
-  // for now the midway result has been copy to output and input has copy in midway tensor
-  // when copy finish create a task put into task queue to do all reduce
+  // for now the midway result has been copy to output and input has put into midway tensor
+  // create a task
   dadt::Task task;
   task.name = name;
   task.tensor = midway_tensor;
   task.task_type = dadt::kAllReduceTaskType;
 
+  // before task really do, need wait input memory ready
   task.before = [wait_input_event]() {
-    // before use input we need wait input finish backward.
     CUDA_CALL(cudaEventSynchronize(wait_input_event));
-
-    // destroy cuda event
-    CUDA_CALL(cudaEventDestroy(wait_input_event));
   };
 
+  // when finish alreduce. set the status
   task.done = [midway_tensor]() {
     midway_tensor->wait(dadt::LockTensorStatus::kInExecute, dadt::LockTensorStatus::kWaitForFetch);
   };
@@ -355,11 +334,10 @@ torch::Tensor all_reduce_gpu_midway_tensor_gpu(torch::Tensor input, const std::s
 torch::Tensor all_reduce(torch::Tensor input, const std::string &name, float multiplier) {
   if (input.is_cuda()) {
 #ifdef HAVE_NCCL
-    if (is_cuda_midway_tensor(dadt::kAllReduceTaskType)) {
-      // need cuda midway tensor
-      return all_reduce_gpu_midway_tensor_gpu(input, name, multiplier);
+    if (dadt::is_cuda_midway_tensor(dadt::kAllReduceTaskType)) {
+      return all_reduce_gpu_midway_gpu(input, name, multiplier);
     } else {
-      return all_reduce_gpu(input, name, multiplier);
+      return all_reduce_gpu_midway_cpu(input, name, multiplier);
     }
 #else
     RUNTIME_ERROR("dadt not build with GPU, please rebuild it with GPU.")
@@ -369,116 +347,10 @@ torch::Tensor all_reduce(torch::Tensor input, const std::string &name, float mul
   }
 }
 
-#ifdef HAVE_NCCL
-// AllReduce GPU async, will put the waiting and copy into threadpool
-void all_reduce_gpu_async(
-  torch::Tensor input,
-  torch::Tensor output,
-  const std::string &name,
-  float multiplier) {
-  // Get current cuda stream.
-  auto cuda_stream = c10::cuda::getCurrentCUDAStream(input.device().index()).stream();
-
-  // waiting/copy will execute in a threadpool
-  auto job = [=]() {
-    // get midway tensor
-    auto midway_tensor = dadt::obtain_midway_tensor(dadt::kAllReduceTaskType, name);
-
-    if (nullptr == midway_tensor) {
-      auto dims = get_shape_vector(input);
-      auto element_type = get_element_type(input);
-
-      midway_tensor = dadt::create_midway_tensor(dadt::kAllReduceTaskType, name, dims, element_type);
-    }
-
-    // wait midway tensor finish allreduce
-    midway_tensor->wait(dadt::LockTensorStatus::kWaitForFetch, dadt::LockTensorStatus::kInFetch);
-
-    // check the midway tensor type
-    if (midway_tensor->is_cpu()) {
-      // copy memory from cpu tensor to output
-      CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
-                                midway_tensor->ptr(),
-                                midway_tensor->num_bytes(),
-                                cudaMemcpyHostToDevice,
-                                cuda_stream));
-
-      // copy input to cpu tensor
-      CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
-                                input.data_ptr(),
-                                midway_tensor->num_bytes(),
-                                cudaMemcpyDeviceToHost,
-                                cuda_stream));
-    } else {
-      // copy memory from gpu tensor to output
-      CUDA_CALL(cudaMemcpyAsync(output.data_ptr(),
-                                midway_tensor->ptr(),
-                                midway_tensor->num_bytes(),
-                                cudaMemcpyDeviceToDevice,
-                                cuda_stream));
-
-      // copy input to gpu tensor
-      CUDA_CALL(cudaMemcpyAsync(midway_tensor->ptr(),
-                                input.data_ptr(),
-                                midway_tensor->num_bytes(),
-                                cudaMemcpyDeviceToDevice,
-                                cuda_stream));
-    }
-
-    // wait memory copy finish
-    auto wait_event = dadt::obtain_cuda_event();
-
-    // put wait event into stream and wait event finish
-    CUDA_CALL(cudaEventRecord(wait_event, cuda_stream));
-    CUDA_CALL(cudaEventSynchronize(wait_event));
-
-    // for now the midway result has been copy to output and input has copy in midway tesnor
-    // when copy finish create a task put into task queue to do all reduce
-    dadt::Task task;
-    task.name = name;
-    task.tensor = midway_tensor;
-    task.task_type = dadt::kAllReduceTaskType;
-
-    task.done = [midway_tensor] {
-      midway_tensor->wait(dadt::LockTensorStatus::kInExecute, dadt::LockTensorStatus::kWaitForFetch);
-    };
-
-    // change tensor status
-    midway_tensor->wait(dadt::LockTensorStatus::kInFetch, dadt::LockTensorStatus::kInExecute);
-
-    // put task in queue
-    dadt::enqueue_task(std::move(task));
-  };
-
-  // put the job into threadpool
-  dadt::thread_pool_enqueue(std::move(job));
-}
-#endif
-
-void all_reduce_async(torch::Tensor input, torch::Tensor output, const std::string &name, float multiplier) {
-  if (input.is_cuda()) {
-#ifdef HAVE_NCCL
-    return all_reduce_gpu_async(input, output, name, multiplier);
-#else
-    RUNTIME_ERROR("dadt not build with GPU, please rebuild it with GPU.");
-#endif
-  } else {
-    // return all_reduce_cpu(input, name, multiplier);
-    RUNTIME_ERROR("not write");
-  }
-}
-
-// wait all reduce finish
-void wait_all_reduce_finish() {
-  dadt::thread_pool_wait();
-}
-
 // Define API in python module.
 PYBIND11_MODULE(dadt_pytorch, m) {
   m.def("broad_cast", &broad_cast, "broad_cast tensor from rank-0 to other ranks.");
   m.def("all_reduce", &all_reduce, "all_reduce cross all rank.");
-  //m.def("all_reduce_async", &all_reduce_async, "all_reduce cross all rank async, must call sync before use grad.");
-  //m.def("wait_all_reduce_finish", &wait_all_reduce_finish, "wait all reduce finish.");
 }
 
 

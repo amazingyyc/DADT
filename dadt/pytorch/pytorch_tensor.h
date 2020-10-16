@@ -14,8 +14,19 @@ private:
   // PytorchTensor does not has a TensorStorage it's torch::Tensor wrapper
   torch::Tensor torch_tensor_;
 
+#ifdef HAVE_NCCL
+  // if build for cuda every PytorchTensor need a CudaEvent when call beforecallback.
+  cudaEvent_t cuda_event_;
+#endif
+
 public:
   PytorchTensor(torch::Tensor torch_tensor, std::string name, LockTensorStatus initialize_status);
+
+  ~PytorchTensor();
+
+#ifdef HAVE_NCCL
+  cudaEvent_t cuda_event();
+#endif
 
   int device_id() const override;
 
