@@ -9,10 +9,7 @@ std::shared_ptr<LockTensor> MPIBroadCastExecutor::obtain_midway_tensor(std::stri
   return nullptr;
 }
 
-std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) {
-  // tensor shape
-  Shape shape(dims);
-
+std::shared_ptr<LockTensor> MPIBroadCastExecutor::create_midway_tensor(std::string name, Shape shape, ElementType element_type) {
   // MPI broadcast should need cpu tensor
   auto storage = TensorStorage::create(cpu_device_, shape.size() * element_type.byte_width());
 
@@ -31,7 +28,12 @@ void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<
 
   // for broad cast we will broad one by one
   for (auto &task : tasks) {
-    ARGUMENT_CHECK(DeviceType::CPU == task.tensor->device()->device_type(), "MPIBroadCastExecutor only support CPU tensor");
+    ARGUMENT_CHECK(task.tensor->is_cpu(), "MPIBroadCastExecutor only support CPU tensor");
+
+    // before callback
+    if (task.before) {
+      task.before();
+    }
 
     void *sendbuf = task.tensor->ptr();
     int count = task.tensor->size();
@@ -42,7 +44,9 @@ void MPIBroadCastExecutor::operator()(const Context &context, const std::vector<
     MPI_CALL(MPI_Bcast(sendbuf, count, mpi_dtype, 0, context.world_comm));
 
     // finish callback
-    task.done();
+    if (task.done) {
+      task.done();
+    }
 
     // if (context.enable_timeline.load()) {
     //   timeline->end(task.name, kDoBroadCastEvent);

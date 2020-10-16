@@ -39,12 +39,18 @@ public:
   // split tasks to MergeUnit
   std::vector<MergeUnit> split_tasks(const std::vector<Task> &tasks, size_t buffer_size);
 
+  // whether the midway tensor is cuda
+  virtual bool is_cuda_midway_tensor();
+
+  // put a tensor into executor.
+  virtual void insert_midway_tensor(std::string name, std::shared_ptr<LockTensor> tensor);
+
   // obtain the midway tesnor may return nullptr
-  virtual std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name) = 0;
+  virtual std::shared_ptr<LockTensor> obtain_midway_tensor(std::string name);
 
   // a executor may need a interim tensor to store the data and every executor may need different device tensor
   // like MPI broadcast need cpu tesnor
-  virtual std::shared_ptr<LockTensor> create_midway_tensor(std::string name, std::vector<int> dims, ElementType element_type) = 0;
+  virtual std::shared_ptr<LockTensor> create_midway_tensor(std::string name, Shape shape, ElementType element_type) = 0;
 
   // tasks will contain the task that have the some tasktype
   virtual void operator()(const Context &context, const std::vector<Task> &tasks, std::shared_ptr<TimeLine> timeline) = 0;

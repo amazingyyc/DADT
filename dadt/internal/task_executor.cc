@@ -103,4 +103,18 @@ std::vector<MergeUnit> ITaskExecutor::split_tasks(const std::vector<Task> &tasks
   return merge_units;
 }
 
+// whether the midway tensor is cuda
+bool ITaskExecutor::is_cuda_midway_tensor() {
+  return false;
+}
+
+// put a tensor into executor.
+void ITaskExecutor::insert_midway_tensor(std::string name, std::shared_ptr<LockTensor> tensor) {
+  // do nothing
+}
+
+std::shared_ptr<LockTensor> ITaskExecutor::obtain_midway_tensor(std::string name) {
+  return nullptr;
+}
+
 }

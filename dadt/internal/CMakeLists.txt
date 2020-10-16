@@ -22,7 +22,6 @@ set(DADT_HEADER_FILES
   task_executor.h
   task.h
   tensor_storage.h
-  tensor.h
   thread_pool.h
   internal.h
   timeline.h
@@ -41,7 +40,6 @@ set(DADT_SRC_FILES
   spin_lock.cc
   task_executor.cc
   tensor_storage.cc
-  tensor.cc
   thread_pool.cc
   internal.cc
   timeline.cc

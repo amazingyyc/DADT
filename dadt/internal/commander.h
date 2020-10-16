@@ -52,7 +52,7 @@ private:
 
 private:
   // initialize context
-  void init_context(Config);
+  void init_context(const Config&);
 
   // clean context, call in the same thread with init_context
   void clear_context();
@@ -65,7 +65,7 @@ public:
   Commander();
 
   // init the commander
-  void init(Config config);
+  void init(const Config& config);
 
   // shutdown background thread
   void shutdown();
@@ -105,16 +105,23 @@ public:
   cudaEvent_t obtain_cuda_event();
 #endif
 
+  // whether the executor need cuda tensor
+  bool is_cuda_midway_tensor(TaskType task_type);
+
+  // put into a midway tensor
+  // it is thread safe
+  void insert_midway_tensor(TaskType task_type, std::string name, std::shared_ptr<LockTensor> tensor);
+
   // check whether already create a midway tensor
   // it is thread safe
   std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name);
 
   // get a interim tensor by TaskType
   // it is thread safe
-  std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, std::vector<int> dims, ElementType element_type);
-  
+  std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, Shape shape, ElementType element_type);
+
   // used for background_thread_ to do the task
-  void worker_do_cycle(Config config);
+  void worker_do_cycle(const Config& config);
 };
 
 }

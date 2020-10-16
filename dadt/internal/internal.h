@@ -45,6 +45,12 @@ void local_barrier();
 
 }
 
+// put a job into threadpool
+void thread_pool_enqueue(std::function<void()> &&task);
+
+// wait all task in thread pool finish
+void thread_pool_wait();
+
 // put a task in queue
 void enqueue_task(Task &&t);
 
@@ -58,11 +64,16 @@ void end_timeline_event(const std::string &name, const std::string &event);
 cudaEvent_t obtain_cuda_event();
 #endif
 
+bool is_cuda_midway_tensor(TaskType task_type);
+
+// insert a midway tensor into excutor
+void insert_midway_tensor(TaskType task_type, std::string name, std::shared_ptr<LockTensor> tensor);
+
 // if have a midway tensor corresponding the tasktype
 std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType, std::string);
 
 // get a interim tensor by TaskType
-std::shared_ptr<LockTensor> create_midway_tensor(TaskType, std::string, std::vector<int>, ElementType);
+std::shared_ptr<LockTensor> create_midway_tensor(TaskType, std::string, Shape, ElementType);
 
 }
 

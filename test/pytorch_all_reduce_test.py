@@ -4,7 +4,7 @@ import torch
 import ctypes
 import dadt.pytorch as dadt
 
-dadt.init(broad_cast_executor='mpi', all_reduce_executor='nccl')
+dadt.init(broad_cast_executor='nccl', all_reduce_executor='nccl')
 
 device = torch.device('cuda:{}'.format(dadt.local_rank()))
 # device = torch.device('cpu')
