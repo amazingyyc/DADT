@@ -1,6 +1,11 @@
 # DADT
 DADT is A Decentrilized Asynchronously Distributed Training framework for Pytorh. DADT use asynchronously AllReduce algorithm to exchange gradients. So it has AllReduce and Asynchronous's advantage at the same time. Refer to 3 paper: [Pipe-SGD: A Decentralized Pipelined SGD Framework for Distributed Deep Net Training](https://arxiv.org/abs/1811.03619), [Asynchronous Decentralized Parallel Stochastic Gradient Descent](https://arxiv.org/abs/1710.06952) and [EXASCALE DEEP LEARNING FOR SCIENTIFIC INVERSE PROBLEMS](https://arxiv.org/pdf/1909.11150.pdf).
 
+# Perf Compare
+Perf test compare with Horvod, using Resnet101, on GPU p40, has about **20% increase**. Test deatil on folder: perf.
+![perf](pic/perf.png)
+
+
 # Install
 DADT run on Linux platform.
 
