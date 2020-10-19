@@ -273,7 +273,7 @@ class CMakeBuildExt(build_ext):
 setup(
     name='dadt',
     version='0.2.0',
-    description='A Decentrilized Asynchronously Distribute Training framwork',
+    description='A Decentrilized Asynchronously Distribute Training framwork for pytorch',
     long_description='',
     author='Yan Yuanchi',
     author_email='amazingyyc@outlook.com',
