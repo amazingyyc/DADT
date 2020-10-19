@@ -12,14 +12,6 @@ def broad_cast(x, name):
 def all_reduce(x, name, multiplier=1.0):
   return native_ops.all_reduce(x, name, multiplier)
 
-'''do allreduce async for all rank'''
-# def all_reduce_async(x, y, name, multiplier=1.0):
-#   native_ops.all_reduce_async(x, y, name, multiplier)
-
-'''wait allreduce finish'''
-# def wait_all_reduce_finish():
-#   native_ops.wait_all_reduce_finish()
-
 class DistributedOptimizer:
   # DistributedOptimizer idx every DistributedOptimizer has a unique index
   _DistributedIndex = 0
@@ -71,17 +63,10 @@ class DistributedOptimizer:
     def hook(grad):
       name = self._parameter_names[p]
       return all_reduce(grad, name, self._multiplier)
-      # name = self._parameter_names[p]
-      # new_grad = torch.zeros_like(grad)
-      # all_reduce_async(grad, new_grad, name, self._multiplier)
-      # return new_grad
 
     return hook
 
   def step(self, closure=None):
-    # wait allreduce finish
-    # wait_all_reduce_finish()
-
     # update gradient
     self._optimizer.step(closure=closure)
 
