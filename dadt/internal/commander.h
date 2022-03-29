@@ -1,20 +1,17 @@
-#ifndef COMMANDER_H
-#define COMMANDER_H
+#pragma once
 
 #include <iostream>
 #include <thread>
-#include <vector>
-#include <unordered_set>
-#include <unordered_map>
 #include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
-#include "concurrentqueue.h"
-#include "task.h"
-#include "context.h"
-#include "task_executor.h"
-#include "thread_pool.h"
+#include "common/context.h"
+#include "common/task.h"
 #include "communicator.h"
-#include "timeline.h"
+#include "concurrentqueue.h"
+#include "executor/task_executor.h"
 
 namespace dadt {
 
@@ -28,102 +25,70 @@ private:
   std::atomic<bool> initialized_;
 
   // a map store the task_type with corresponding task executor
-  std::unordered_map<TaskType, std::shared_ptr<ITaskExecutor>> task_executors_;
+  std::unordered_map<TaskType, std::unique_ptr<ITaskExecutor>> task_executors_;
 
-  // a task queue, will accept the message and a background will get the message and do the task
   moodycamel::ConcurrentQueue<Task> task_queue_;
 
-  // a background thread will loop take task from message_queue_ to do the task
   std::thread worker_thread_;
 
   // communicator
   Communicator communicator_;
 
-  // timeline
-  std::shared_ptr<TimeLine> timeline_;
-
-#ifdef HAVE_NCCL
-  // every thread has a unique cuda event
-  // used by op to wait cuda kernel finish
-  SpinLock op_cuda_events_locker_;
-
-  std::unordered_map<std::thread::id, cudaEvent_t> op_cuda_events_;
-#endif
+  // LockTensor cache.
+  std::unordered_map<TaskKey, std::shared_ptr<LockTensor>, TaskKeyHash,
+                     TaskKeyEqual>
+      cached_l_tensors_;
 
 private:
-  // initialize context
-  void init_context(const Config&);
+  // Setup the commander
+  void Setup(const Config& config);
 
   // clean context, call in the same thread with init_context
-  void clear_context();
+  void Clear();
 
   // loop to get task from queue and do the task
   // return wheter shut down
-  bool worker_do_task();
+  bool DoTask();
+
+  // used for background_thread_ to do the task
+  void Run(const Config& config);
 
 public:
   Commander();
 
   // init the commander
-  void init(const Config& config);
+  void Initialize(const Config& config);
 
   // shutdown background thread
-  void shutdown();
+  void Shutdown();
 
   // if the commander have been initialized
-  bool initialized();
+  bool Initialized() const;
 
   // process count
-  int size();
+  int Size() const;
 
   // local machine process count
-  int local_size();
+  int LocalSize() const;
 
   // process rank
-  int rank();
+  int Rank() const;
 
   // local rank
-  int local_rank();
+  int LocalRank() const;
 
   // barrier all process
-  void barrier();
+  void Barrier();
 
   // local barrier process
-  void local_barrier();
+  void LocalBarrier();
+
+  std::shared_ptr<LockTensor> CachedLTensor(TaskKey key) const;
+
+  void InsertLTensor(TaskKey key, std::shared_ptr<LockTensor> l_tensor);
 
   // insert a task to task queue
-  void enqueue_task(Task &&t);
-
-  // begin timeline evet
-  void begin_timeline_event(const std::string &name, const std::string &event);
-
-  // end timeline event
-  void end_timeline_event(const std::string &name, const std::string &event);
-
-#ifdef HAVE_NCCL
-  // every thread has a unique cuda event
-  cudaEvent_t obtain_cuda_event();
-#endif
-
-  // whether the executor need cuda tensor
-  bool is_cuda_midway_tensor(TaskType task_type);
-
-  // put into a midway tensor
-  // it is thread safe
-  void insert_midway_tensor(TaskType task_type, std::string name, std::shared_ptr<LockTensor> tensor);
-
-  // check whether already create a midway tensor
-  // it is thread safe
-  std::shared_ptr<LockTensor> obtain_midway_tensor(TaskType task_type, std::string name);
-
-  // get a interim tensor by TaskType
-  // it is thread safe
-  std::shared_ptr<LockTensor> create_midway_tensor(TaskType task_type, std::string name, Shape shape, ElementType element_type);
-
-  // used for background_thread_ to do the task
-  void worker_do_cycle(const Config& config);
+  void EnqueueTask(Task&& t);
 };
 
-}
-
-#endif
+}  // namespace dadt

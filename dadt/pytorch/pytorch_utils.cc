@@ -1,50 +1,65 @@
 #include "pytorch_utils.h"
 
+#include "common/exception.h"
+
 namespace dadt {
 namespace pytorch {
 
-dadt::ElementType get_element_type(const torch::Tensor &x) {
-  return parse_element_type(x);
-}
-
-dadt::Shape get_shape_vector(const torch::Tensor &x) {
-  return parse_shape_vector(x);
-}
-
-dadt::ElementType parse_element_type(const torch::Tensor &x) {
-  switch (x.scalar_type()) {
-    case torch::kByte:
-      return dadt::ElementType::from<uint8_t>();
-    case torch::kChar:
-      return dadt::ElementType::from<int8_t>();
-    case torch::kShort:
-      return dadt::ElementType::from<int16_t>();
-    case torch::kInt:
-      return dadt::ElementType::from<int32_t>();
-    case torch::kLong:
-      return dadt::ElementType::from<int64_t>();
-    case torch::kHalf:
-      return dadt::ElementType::from<half>();
-    case torch::kFloat:
-      return dadt::ElementType::from<float>();
-    case torch::kDouble:
-      return dadt::ElementType::from<double>();
+ElementType TorchDTypeToElementType(torch::Dtype dtype) {
+  switch (dtype) {
+    case torch::kUInt8:
+      return ElementType::From<uint8_t>();
+    case torch::kInt8:
+      return ElementType::From<int8_t>();
+    case torch::kInt16:
+      return ElementType::From<int16_t>();
+    case torch::kInt32:
+      return ElementType::From<int32_t>();
+    case torch::kInt64:
+      return ElementType::From<int64_t>();
+    case torch::kFloat16:
+      return ElementType::From<half>();
+    case torch::kFloat32:
+      return ElementType::From<float>();
+    case torch::kFloat64:
+      return ElementType::From<double>();
     default:
-      RUNTIME_ERROR("the dtype does not support");
+      return ElementType::From<UnKnown>();
   }
 }
 
-dadt::Shape parse_shape_vector(const torch::Tensor &x) {
-  std::vector<int> dims;
-
-  for (auto d : x.sizes()) {
-    ARGUMENT_CHECK(d > 0, "shape dim must > 0");
-
-    dims.emplace_back(d);
+torch::Dtype ElementTypeToTorchDType(ElementType etype) {
+  switch (etype.dtype) {
+    case DType::kUint8:
+      return torch::kUInt8;
+    case DType::kInt8:
+      return torch::kInt8;
+    case DType::kInt16:
+      return torch::kInt16;
+    case DType::kInt32:
+      return torch::kInt32;
+    case DType::kInt64:
+      return torch::kInt64;
+    case DType::kFloat16:
+      return torch::kFloat16;
+    case DType::kFloat32:
+      return torch::kFloat32;
+    case DType::kFloat64:
+      return torch::kFloat64;
+    default:
+      RUNTIME_ERROR("The ElementType does not support:" << etype.Name());
   }
-
-  return dadt::Shape(dims);
 }
 
+Shape TorchSizesToShape(const torch::IntArrayRef& sizes) {
+  std::vector<int64_t> dims = sizes.vec();
+  return Shape(dims);
 }
+
+torch::IntArrayRef ShapeToTorchSizes(const Shape& shape) {
+  const auto& dims = shape.dims();
+  return torch::IntArrayRef(dims);
 }
+
+}  // namespace pytorch
+}  // namespace dadt

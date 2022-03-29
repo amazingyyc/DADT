@@ -1,23 +1,21 @@
-#ifndef PYTORCH_UTILS_H
-#define PYTORCH_UTILS_H
+#pragma once
 
 #include <torch/extension.h>
 #include <torch/torch.h>
 
-#include "lock_tensor.h"
+#include "t/element_type.h"
+#include "t/shape.h"
 
 namespace dadt {
 namespace pytorch {
 
-dadt::ElementType get_element_type(const torch::Tensor &x);
+ElementType TorchDTypeToElementType(torch::Dtype dtype);
 
-dadt::Shape get_shape_vector(const torch::Tensor &x);
+torch::Dtype ElementTypeToTorchDType(ElementType etype);
 
-dadt::ElementType parse_element_type(const torch::Tensor &x);
+Shape TorchSizesToShape(const torch::IntArrayRef& sizes);
 
-dadt::Shape parse_shape_vector(const torch::Tensor &x);
+torch::IntArrayRef ShapeToTorchSizes(const Shape& shape);
 
-}
-}
-
-#endif
+}  // namespace pytorch
+}  // namespace dadt
