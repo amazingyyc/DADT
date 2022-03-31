@@ -266,9 +266,9 @@ class CMakeBuildExt(build_ext):
 
         build_args += ['--', '/m']
         build_args += ['/p:PreferredToolArchitecture=x64']
-      else:
-        cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
-        build_args += ['--', '-j8']
+    else:
+      cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
+      build_args += ['--', '-j16']
 
     env = os.environ.copy()
     env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(

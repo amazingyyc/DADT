@@ -10,7 +10,7 @@ Shape::Shape(const Shape& other)
 
 Shape::Shape(const std::vector<int64_t>& dims) : dims_(dims) {
   for (auto d : dims_) {
-    ARGUMENT_CHECK(d > 0, "dimension need > 0");
+    ARGUMENT_CHECK(d >= 0, "dimension need > 0");
   }
 
   UpdateStrides();
@@ -18,7 +18,7 @@ Shape::Shape(const std::vector<int64_t>& dims) : dims_(dims) {
 
 Shape::Shape(std::vector<int64_t>&& dims) : dims_(std::move(dims)) {
   for (auto d : dims_) {
-    ARGUMENT_CHECK(d > 0, "dimension need > 0");
+    ARGUMENT_CHECK(d >= 0, "dimension need > 0");
   }
 
   UpdateStrides();
@@ -82,15 +82,15 @@ const std::vector<int64_t>& Shape::strides() const {
   return strides_;
 }
 
-bool Shape::IsScalar() const {
-  return 1 == Size();
-}
-
 int64_t Shape::NDims() const {
   return (int64_t)dims_.size();
 }
 
 int64_t Shape::Size() const {
+  if (dims_.empty()) {
+    return 0;
+  }
+
   int64_t size = 1;
   for (auto d : dims_) {
     size *= d;

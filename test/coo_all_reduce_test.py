@@ -3,13 +3,7 @@
 import torch
 import dadt.pytorch as dadt
 
-config = dadt.Config()
-config.cycle_duration_ms = 3
-config.broad_cast_executor = 'mpi'
-config.all_reduce_executor = 'mpi'
-config.all_reduce_buffer_size = 64 * 1024 * 1024
-
-dadt.initialize(config)
+dadt.initialize()
 
 print('size:', dadt.size())
 print('rank:', dadt.rank())
@@ -25,14 +19,13 @@ else:
 
   x = torch.sparse_coo_tensor(i, v, (2, 3, 2))
 
-x = x.coalesce()
-x = dadt.coo_all_reduce_async(0, x)
+print('rank:', dadt.rank(), x)
 
+x = dadt.coo_all_reduce_async(0, x.coalesce())
+print('rank:', dadt.rank(), x)
 print('rank:', dadt.rank(), x.to_dense())
 
-x = x.coalesce()
-x = dadt.coo_all_reduce_async(0, x)
-
+x = dadt.coo_all_reduce_async(0, x.coalesce())
 print('rank:', dadt.rank(), x.to_dense())
 
 dadt.shutdown()

@@ -17,9 +17,6 @@ private:
 public:
   MPIAllReduceExecutor(Device* cpu_device, size_t buffer_size);
 
-  std::vector<MergeUnit> SplitTasks(const std::vector<Task>& tasks,
-                                    size_t buffer_size);
-
   void Do(const Context& context, const std::vector<Task>& tasks) override;
 };
 

@@ -5,6 +5,11 @@
 
 #include <memory>
 
+#ifdef HAVE_NCCL
+#include <cuda_runtime.h>
+#include <nccl.h>
+#endif
+
 #include "common/exception.h"
 #include "t/shape.h"
 #include "t/tensor_impl.h"
@@ -13,25 +18,18 @@ namespace dadt {
 namespace pytorch {
 
 // ref:torch/include/ATen/core/TensorBody.h
+// ref about cuda strema: https://github.com/pytorch/pytorch/issues/31696
 class PytorchTensorImpl : public TensorImpl {
 private:
   torch::Tensor torch_tensor_;
 
-#ifdef HAVE_NCCL
-  cudaEvent_t cuda_event_;
-#endif
-
 public:
   explicit PytorchTensorImpl(torch::Tensor torch_tensor);
 
-  ~PytorchTensorImpl();
+  ~PytorchTensorImpl() = default;
 
 public:
   torch::Tensor torch_tensor() const;
-
-#ifdef HAVE_NCCL
-  cudaEvent_t cuda_event() const;
-#endif
 
   bool IsCoo() const override;
 
@@ -78,6 +76,17 @@ public:
   // get memory pointer
   void* Ptr() override;
   void* Ptr() const override;
+
+  std::shared_ptr<TensorImpl> Transpose(int64_t dim0,
+                                        int64_t dim1) const override;
+
+  std::shared_ptr<TensorImpl> Coalesce() const override;
+
+#ifdef HAVE_NCCL
+  // Return a cuda stream guard.
+  std::unique_ptr<StreamGuard> DynamicCudaStreamGuard(
+      cudaStream_t cuda_stream, int8_t device_index) const override;
+#endif
 
   std::shared_ptr<TensorImpl> DynamicZero(
       const Shape& shape, ElementType element_type) const override;

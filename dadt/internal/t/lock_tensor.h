@@ -3,6 +3,11 @@
 #include <memory>
 #include <string>
 
+#ifdef HAVE_NCCL
+#include <cuda_runtime.h>
+#include <nccl.h>
+#endif
+
 #include "common/spin_lock.h"
 #include "t/element_type.h"
 #include "t/tensor.h"
@@ -31,17 +36,27 @@ private:
 
   Tensor tensor_;
 
+#ifdef HAVE_NCCL
+  cudaEvent_t cuda_event_;
+#endif
+
 public:
   LockTensor(LockTensorStatus init_status, Tensor tensor);
 
-  ~LockTensor() = default;
-
-  // wait the tensor is expected_status/new_status and change it to new_status
-  void Wait(LockTensorStatus expected_status, LockTensorStatus new_status);
+  ~LockTensor();
 
   const Tensor& tensor() const;
 
+#ifdef HAVE_NCCL
+  cudaEvent_t cuda_event() const;
+
+  void CudaEventSynchronize() const;
+#endif
+
   void ResetTensor(const Tensor& tensor);
+
+  // wait the tensor is expected_status/new_status and change it to new_status
+  void Wait(LockTensorStatus expected_status, LockTensorStatus new_status);
 };
 
 }  // namespace dadt

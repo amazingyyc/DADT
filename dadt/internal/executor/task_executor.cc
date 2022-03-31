@@ -38,9 +38,45 @@ MPI_Datatype ITaskExecutor::MpiDataType(const Context& context,
   }
 }
 
+std::vector<int64_t> ITaskExecutor::AllGatherV(
+    const Context& context, const std::vector<int64_t>& vec) {
+  std::vector<int64_t> all_vec;
+
+  std::vector<uint64_t> counts(context.world_size);
+  counts[context.world_rank] = vec.size();
+
+  MPI_CALL(MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, counts.data(), 1,
+                         MPI_UINT64_T, context.world_comm));
+
+  uint64_t total_count = 0;
+  for (auto i : counts) {
+    total_count += i;
+  }
+
+  all_vec.resize(total_count);
+
+  std::vector<int> recvcounts(context.world_size);
+  std::vector<int> displs(context.world_size);
+
+  for (int i = 0; i < context.world_size; ++i) {
+    recvcounts[i] = counts[i];
+
+    if (0 == i) {
+      displs[i] = 0;
+    } else {
+      displs[i] = displs[i - 1] + recvcounts[i - 1];
+    }
+  }
+
+  MPI_CALL(MPI_Allgatherv(vec.data(), (int)vec.size(), MPI_INT64_T,
+                          all_vec.data(), recvcounts.data(), displs.data(),
+                          MPI_INT64_T, context.world_comm));
+
+  return all_vec;
+}
+
 #ifdef HAVE_NCCL
-ncclDataType_t ITaskExecutor::NcclDataType(const Context& context,
-                                           ElementType element_type) {
+ncclDataType_t ITaskExecutor::NcclDataType(ElementType element_type) {
   switch (element_type.dtype) {
     case DType::kUint8:
       return ncclUint8;
@@ -65,6 +101,101 @@ ncclDataType_t ITaskExecutor::NcclDataType(const Context& context,
                                 << " not support in NCCL");
   }
 }
+
+Tensor ITaskExecutor::AllGatherAndCatTensor(const Context& context,
+                                            const Tensor& input) {
+  ARGUMENT_CHECK(input.shape().NDims() >= 1,
+                 "AllGatherAndCatTensor need tensor ndims >= 1");
+
+  Shape in_shape = input.shape();
+
+  // The tensor from all rank must has same shape except the first dimension.
+  std::vector<int64_t> first_dims(context.world_size);
+  first_dims[context.world_rank] = in_shape[0];
+
+  MPI_CALL(MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, first_dims.data(),
+                         1, MPI_INT64_T, context.world_comm));
+
+  std::vector<int64_t> out_dims = in_shape.dims();
+  out_dims[0] = 0;
+  for (auto i : first_dims) {
+    out_dims[0] += i;
+  }
+
+  auto element_type = input.element_type();
+
+  Shape out_shape(out_dims);
+
+  // We create a output tensor to accept the gather data.
+  Tensor output = input.DynamicZero(out_shape, element_type);
+
+  int64_t stride = in_shape.Stride(0);
+
+  std::vector<int64_t> counts(context.world_size);
+  for (int i = 0; i < context.world_size; ++i) {
+    counts[i] = first_dims[i] * stride;
+  }
+
+  std::vector<int64_t> offsets(context.world_size);
+  offsets[0] = 0;
+  for (int i = 1; i < context.world_size; ++i) {
+    offsets[i] =
+        offsets[i - 1] + first_dims[i - 1] * stride * element_type.ByteWidth();
+  }
+
+  uint8_t* out_ptr = output.Data<uint8_t>();
+  auto nccl_dtype = NcclDataType(element_type);
+
+  NCCL_CALL(ncclGroupStart());
+  for (int i = 0; i < context.world_size; ++i) {
+    // Send
+    NCCL_CALL(ncclSend(input.Ptr(), input.Size(), nccl_dtype, i,
+                       context.nccl_comm, context.cuda_stream));
+
+    // Recv
+    NCCL_CALL(ncclRecv(out_ptr + offsets[i], counts[i], nccl_dtype, i,
+                       context.nccl_comm, context.cuda_stream));
+  }
+  NCCL_CALL(ncclGroupEnd());
+
+  return output;
+}
 #endif
+
+std::vector<MergeUnit> ITaskExecutor::SplitTasks(const std::vector<Task>& tasks,
+                                                 size_t buffer_size) {
+  std::vector<MergeUnit> merge_units;
+
+  for (size_t i = 0; i < tasks.size();) {
+    if (tasks[i].l_tensor->tensor().NumBytes() >= buffer_size) {
+      MergeUnit unit;
+      unit.begin = i;
+      unit.end = i + 1;
+
+      merge_units.emplace_back(unit);
+      i += 1;
+    } else {
+      size_t cur_size = 0;
+      size_t j = i;
+
+      for (; j < tasks.size(); ++j) {
+        if (cur_size + tasks[j].l_tensor->tensor().NumBytes() > buffer_size) {
+          break;
+        }
+
+        cur_size += tasks[j].l_tensor->tensor().NumBytes();
+      }
+
+      MergeUnit unit;
+      unit.begin = i;
+      unit.end = j;
+
+      merge_units.emplace_back(unit);
+      i = j;
+    }
+  }
+
+  return merge_units;
+}
 
 }  // namespace dadt

@@ -82,25 +82,23 @@ torch::Tensor BroadCastCpu(uint32_t id, torch::Tensor input) {
 #ifdef HAVE_NCCL
 torch::Tensor BroadCastGpu(uint32_t id, torch::Tensor input) {
   cudaStream_t cuda_stream =
-      c10::cuda::getCurrentCUDAStream(input.device().index()).stream();
+      at::cuda::getCurrentCUDAStream(input.device().index()).stream();
 
   std::shared_ptr<PytorchTensorImpl> impl(new PytorchTensorImpl(input.clone()));
   std::shared_ptr<LockTensor> l_tensor(
       new LockTensor(LockTensorStatus::kInExecute, Tensor(impl)));
 
-  cudaEvent_t cuda_event = impl->cuda_event();
-
-  // Put a event into CudaStream.
+  // Put a event into pytorch's CudaStream.
   // The GPU is async so for now the input's data maybe not ready.
-  CUDA_CALL(cudaEventRecord(cuda_event, cuda_stream));
+  CUDA_CALL(cudaEventRecord(l_tensor->cuda_event(), cuda_stream));
 
   Task task;
   task.type = kBroadCastTaskType;
   task.id = id;
   task.l_tensor = l_tensor;
-  task.before = [cuda_event]() {
+  task.before = [l_tensor]() {
     // Wait clone ready.
-    CUDA_CALL(cudaEventSynchronize(cuda_event));
+    l_tensor->CudaEventSynchronize();
   };
 
   task.done = [l_tensor]() {
@@ -129,10 +127,9 @@ torch::Tensor BroadCast(uint32_t id, torch::Tensor input) {
   }
 }
 
-torch::Tensor AllReduce(uint32_t id, torch::Tensor input) {
+torch::Tensor AllReduceCpu(uint32_t id, torch::Tensor input) {
   // Clone it, make sure not modify the origin tensor
   std::shared_ptr<PytorchTensorImpl> impl(new PytorchTensorImpl(input.clone()));
-
   std::shared_ptr<LockTensor> l_tensor(
       new LockTensor(LockTensorStatus::kInExecute, Tensor(impl)));
 
@@ -154,23 +151,65 @@ torch::Tensor AllReduce(uint32_t id, torch::Tensor input) {
       ->torch_tensor();
 }
 
-torch::Tensor AllReduceAsync(uint32_t id, torch::Tensor input) {
+#ifdef HAVE_NCCL
+torch::Tensor AllReduceGpu(uint32_t id, torch::Tensor input) {
+  cudaStream_t cuda_stream =
+      at::cuda::getCurrentCUDAStream(input.device().index()).stream();
+
+  std::shared_ptr<PytorchTensorImpl> impl(new PytorchTensorImpl(input.clone()));
+  std::shared_ptr<LockTensor> l_tensor(
+      new LockTensor(LockTensorStatus::kInExecute, Tensor(impl)));
+
+  // Put a event into pytorch's CudaStream.
+  // The GPU is async so for now the input's data maybe not ready.
+  CUDA_CALL(cudaEventRecord(l_tensor->cuda_event(), cuda_stream));
+
+  Task task;
+  task.type = kAllReduceTaskType;
+  task.id = id;
+  task.l_tensor = l_tensor;
+  task.before = [l_tensor]() {
+    // Wait clone ready.
+    l_tensor->CudaEventSynchronize();
+  };
+
+  task.done = [l_tensor]() {
+    // When finish, change the status.
+    l_tensor->Wait(LockTensorStatus::kInExecute,
+                   LockTensorStatus::kWaitForFetch);
+  };
+
+  commander.EnqueueTask(std::move(task));
+
+  l_tensor->Wait(LockTensorStatus::kWaitForFetch, LockTensorStatus::kInFetch);
+
+  return impl->torch_tensor();
+}
+#endif
+
+torch::Tensor AllReduce(uint32_t id, torch::Tensor input) {
+  if (input.is_cuda()) {
+#ifdef HAVE_NCCL
+    return AllReduceGpu(id, input);
+#else
+    RUNTIME_ERROR("DADT does't build with GPU")
+#endif
+  } else {
+    return AllReduceCpu(id, input);
+  }
+}
+
+torch::Tensor AllReduceAsyncCpu(uint32_t id, torch::Tensor input) {
   TaskKey key;
   key.type = kAllReduceTaskType;
   key.id = id;
 
   std::shared_ptr<LockTensor> l_tensor = commander.CachedLTensor(key);
   if (l_tensor == nullptr) {
-    // Firstly time.
-    auto options = torch::TensorOptions()
-                       .dtype(input.dtype())
-                       .layout(input.layout())
-                       .device(input.device());
-
-    auto zeros = torch::zeros_like(input, options);
+    // First time.
+    auto zeros = input.clone().zero_();
 
     std::shared_ptr<PytorchTensorImpl> zeros_impl(new PytorchTensorImpl(zeros));
-
     l_tensor = std::shared_ptr<LockTensor>(
         new LockTensor(LockTensorStatus::kWaitForFetch, Tensor(zeros_impl)));
 
@@ -208,13 +247,83 @@ torch::Tensor AllReduceAsync(uint32_t id, torch::Tensor input) {
   return output;
 }
 
-torch::Tensor CooAllReduce(uint32_t id, torch::Tensor input) {
+#ifdef HAVE_NCCL
+torch::Tensor AllReduceAsyncGpu(uint32_t id, torch::Tensor input) {
+  cudaStream_t cuda_stream =
+      at::cuda::getCurrentCUDAStream(input.device().index()).stream();
+
+  TaskKey key;
+  key.type = kAllReduceTaskType;
+  key.id = id;
+
+  torch::Tensor output;
+
+  std::shared_ptr<LockTensor> l_tensor = commander.CachedLTensor(key);
+  if (l_tensor == nullptr) {
+    // First time.
+    output = input.clone().zero_();
+
+    std::shared_ptr<PytorchTensorImpl> impl(new PytorchTensorImpl(input));
+    l_tensor = std::shared_ptr<LockTensor>(
+        new LockTensor(LockTensorStatus::kInFetch, Tensor(impl)));
+
+    commander.InsertLTensor(key, l_tensor);
+  } else {
+    l_tensor->Wait(dadt::LockTensorStatus::kWaitForFetch,
+                   dadt::LockTensorStatus::kInFetch);
+
+    PytorchTensorImpl* impl =
+        dynamic_cast<PytorchTensorImpl*>(l_tensor->tensor().impl().get());
+
+    output = impl->torch_tensor();
+
+    // Put current input into the LockTensor.
+    l_tensor->ResetTensor(Tensor(std::make_shared<PytorchTensorImpl>(input)));
+  }
+
+  // Put a event into pytorch's CudaStream.
+  // The GPU is async so for now the input's data maybe not ready.
+  CUDA_CALL(cudaEventRecord(l_tensor->cuda_event(), cuda_stream));
+
+  Task task;
+  task.type = kAllReduceTaskType;
+  task.id = id;
+  task.l_tensor = l_tensor;
+  task.before = [l_tensor]() { l_tensor->CudaEventSynchronize(); };
+  task.done = [l_tensor]() {
+    l_tensor->Wait(LockTensorStatus::kInExecute,
+                   LockTensorStatus::kWaitForFetch);
+  };
+
+  l_tensor->Wait(dadt::LockTensorStatus::kInFetch,
+                 dadt::LockTensorStatus::kInExecute);
+
+  commander.EnqueueTask(std::move(task));
+
+  return output;
+}
+#endif
+
+torch::Tensor AllReduceAsync(uint32_t id, torch::Tensor input) {
+  if (input.is_cuda()) {
+#ifdef HAVE_NCCL
+    return AllReduceAsyncGpu(id, input);
+#else
+    RUNTIME_ERROR("DADT does't build with GPU")
+#endif
+  } else {
+    return AllReduceAsyncCpu(id, input);
+  }
+}
+
+torch::Tensor CooAllReduceCpu(uint32_t id, torch::Tensor input) {
   // Coo AllReduce no need clone, CooAllReduce will not modify the origin
   // tensor.
   ARGUMENT_CHECK(input.is_sparse(), "CooAllReduce need input is Coo format");
+  ARGUMENT_CHECK(input.is_coalesced(),
+                 "CooAllReduceAsync need input coalesced");
 
   std::shared_ptr<PytorchTensorImpl> impl(new PytorchTensorImpl(input));
-
   std::shared_ptr<LockTensor> l_tensor(
       new LockTensor(LockTensorStatus::kInExecute, Tensor(impl)));
 
@@ -236,45 +345,98 @@ torch::Tensor CooAllReduce(uint32_t id, torch::Tensor input) {
       ->torch_tensor();
 }
 
-torch::Tensor CooAllReduceAsync(uint32_t id, torch::Tensor input) {
+#ifdef HAVE_NCCL
+torch::Tensor CooAllReduceGpu(uint32_t id, torch::Tensor input) {
   ARGUMENT_CHECK(input.is_sparse(), "CooAllReduce need input is Coo format");
+  ARGUMENT_CHECK(input.is_coalesced(),
+                 "CooAllReduceAsync need input coalesced");
+
+  cudaStream_t cuda_stream =
+      at::cuda::getCurrentCUDAStream(input.device().index()).stream();
+
+  std::shared_ptr<PytorchTensorImpl> impl(new PytorchTensorImpl(input));
+  std::shared_ptr<LockTensor> l_tensor(
+      new LockTensor(LockTensorStatus::kInExecute, Tensor(impl)));
+
+  // Put a event into pytorch's CudaStream.
+  // The GPU is async so for now the input's data maybe not ready.
+  CUDA_CALL(cudaEventRecord(l_tensor->cuda_event(), cuda_stream));
+
+  Task task;
+  task.type = kCooAllReduceTaskType;
+  task.id = id;
+  task.l_tensor = l_tensor;
+  task.before = [l_tensor]() { l_tensor->CudaEventSynchronize(); };
+
+  task.done = [l_tensor]() {
+    // When finish, change the status.
+    l_tensor->Wait(LockTensorStatus::kInExecute,
+                   LockTensorStatus::kWaitForFetch);
+  };
+
+  commander.EnqueueTask(std::move(task));
+
+  l_tensor->Wait(LockTensorStatus::kWaitForFetch, LockTensorStatus::kInFetch);
+
+  return dynamic_cast<PytorchTensorImpl*>(l_tensor->tensor().impl().get())
+      ->torch_tensor();
+}
+#endif
+
+torch::Tensor CooAllReduce(uint32_t id, torch::Tensor input) {
+  if (input.is_cuda()) {
+#ifdef HAVE_NCCL
+    return CooAllReduceGpu(id, input);
+#else
+    RUNTIME_ERROR("DADT does't build with GPU")
+#endif
+  } else {
+    return CooAllReduceCpu(id, input);
+  }
+}
+
+torch::Tensor CooAllReduceAsyncCpu(uint32_t id, torch::Tensor input) {
+  ARGUMENT_CHECK(input.is_sparse(), "CooAllReduce need input is Coo format");
+  ARGUMENT_CHECK(input.is_coalesced(),
+                 "CooAllReduceAsync need input coalesced");
 
   TaskKey key;
-  key.type = kAllReduceTaskType;
+  key.type = kCooAllReduceTaskType;
   key.id = id;
+
+  torch::Tensor output;
 
   std::shared_ptr<LockTensor> l_tensor = commander.CachedLTensor(key);
   if (l_tensor == nullptr) {
-    auto values_options = torch::TensorOptions()
-                              .dtype(input.values().dtype())
-                              .layout(input.values().layout())
-                              .device(input.values().device());
+    // Clone indices and values avoid call input.clone().zero().
+    // input.clone().zero() will return a new coo tensor with different shape.
+    torch::Tensor new_indices = input.indices().clone();
+    torch::Tensor new_values = input.values().clone().zero_();
 
-    auto zero_values = torch::zeros_like(input.values(), values_options);
+    output = torch::sparse_coo_tensor(new_indices, new_values, input.sizes());
 
-    torch::Tensor zeros = torch::sparse_coo_tensor(input.indices().clone(),
-                                                   zero_values, input.sizes());
-
-    l_tensor = std::shared_ptr<LockTensor>(
-        new LockTensor(LockTensorStatus::kWaitForFetch,
-                       Tensor(std::make_shared<PytorchTensorImpl>(zeros))));
+    // At here must clone the input or will be "hang" when release the pytorch
+    // tensor. I do't know why.
+    l_tensor = std::shared_ptr<LockTensor>(new LockTensor(
+        LockTensorStatus::kInFetch,
+        Tensor(std::make_shared<PytorchTensorImpl>(input.clone()))));
 
     commander.InsertLTensor(key, l_tensor);
+  } else {
+    // Wait finish AllReduce.
+    l_tensor->Wait(LockTensorStatus::kWaitForFetch, LockTensorStatus::kInFetch);
+
+    PytorchTensorImpl* impl =
+        dynamic_cast<PytorchTensorImpl*>(l_tensor->tensor().impl().get());
+
+    output = impl->torch_tensor();
+
+    // Put current input into the LockTensor.
+    // At here must clone the input or will be "hang" when release the pytorch
+    // tensor. I do't know why.
+    l_tensor->ResetTensor(
+        Tensor(std::make_shared<PytorchTensorImpl>(input.clone())));
   }
-
-  // Wait finish AllReduce.
-  l_tensor->Wait(LockTensorStatus::kWaitForFetch, LockTensorStatus::kInFetch);
-
-  PytorchTensorImpl* pytorch_impl =
-      dynamic_cast<PytorchTensorImpl*>(l_tensor->tensor().impl().get());
-
-  torch::Tensor output = pytorch_impl->torch_tensor();
-
-  // Put input in.
-  // (TODO) At here must clone input or will "hange" when call ResetTensor. I
-  // donot know why.
-  l_tensor->ResetTensor(
-      Tensor(std::make_shared<PytorchTensorImpl>(input.clone())));
 
   Task task;
   task.type = kCooAllReduceTaskType;
@@ -291,6 +453,83 @@ torch::Tensor CooAllReduceAsync(uint32_t id, torch::Tensor input) {
   commander.EnqueueTask(std::move(task));
 
   return output;
+}
+
+#ifdef HAVE_NCCL
+torch::Tensor CooAllReduceAsyncGpu(uint32_t id, torch::Tensor input) {
+  ARGUMENT_CHECK(input.is_sparse(), "CooAllReduce need input is Coo format");
+  ARGUMENT_CHECK(input.is_coalesced(),
+                 "CooAllReduceAsync need input coalesced");
+
+  cudaStream_t cuda_stream =
+      at::cuda::getCurrentCUDAStream(input.device().index()).stream();
+
+  TaskKey key;
+  key.type = kCooAllReduceTaskType;
+  key.id = id;
+
+  torch::Tensor output;
+
+  std::shared_ptr<LockTensor> l_tensor = commander.CachedLTensor(key);
+  if (l_tensor == nullptr) {
+    // Clone indices and values avoid call input.clone().zero().
+    // input.clone().zero() will return a new coo tensor with different shape.
+    torch::Tensor new_indices = input.indices().clone();
+    torch::Tensor new_values = input.values().clone().zero_();
+
+    output = torch::sparse_coo_tensor(new_indices, new_values, input.sizes());
+
+    std::shared_ptr<PytorchTensorImpl> impl(new PytorchTensorImpl(input));
+    l_tensor = std::shared_ptr<LockTensor>(
+        new LockTensor(LockTensorStatus::kInFetch, Tensor(impl)));
+
+    commander.InsertLTensor(key, l_tensor);
+  } else {
+    l_tensor->Wait(dadt::LockTensorStatus::kWaitForFetch,
+                   dadt::LockTensorStatus::kInFetch);
+
+    PytorchTensorImpl* impl =
+        dynamic_cast<PytorchTensorImpl*>(l_tensor->tensor().impl().get());
+
+    output = impl->torch_tensor();
+
+    // Put current input into the LockTensor.
+    l_tensor->ResetTensor(Tensor(std::make_shared<PytorchTensorImpl>(input)));
+  }
+
+  // Put a event into pytorch's CudaStream.
+  // The GPU is async so for now the input's data maybe not ready.
+  CUDA_CALL(cudaEventRecord(l_tensor->cuda_event(), cuda_stream));
+
+  Task task;
+  task.type = kCooAllReduceTaskType;
+  task.id = id;
+  task.l_tensor = l_tensor;
+  task.before = [l_tensor]() { l_tensor->CudaEventSynchronize(); };
+  task.done = [l_tensor]() {
+    l_tensor->Wait(LockTensorStatus::kInExecute,
+                   LockTensorStatus::kWaitForFetch);
+  };
+
+  l_tensor->Wait(dadt::LockTensorStatus::kInFetch,
+                 dadt::LockTensorStatus::kInExecute);
+
+  commander.EnqueueTask(std::move(task));
+
+  return output;
+}
+#endif
+
+torch::Tensor CooAllReduceAsync(uint32_t id, torch::Tensor input) {
+  if (input.is_cuda()) {
+#ifdef HAVE_NCCL
+    return CooAllReduceAsyncGpu(id, input);
+#else
+    RUNTIME_ERROR("DADT does't build with GPU")
+#endif
+  } else {
+    return CooAllReduceAsyncCpu(id, input);
+  }
 }
 
 }  // namespace pytorch

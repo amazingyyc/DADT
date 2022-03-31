@@ -81,6 +81,22 @@ void* Tensor::Ptr() const {
   return impl_->Ptr();
 }
 
+Tensor Tensor::Transpose(int64_t dim0, int64_t dim1) const {
+  return Tensor(impl_->Transpose(dim0, dim1));
+}
+
+Tensor Tensor::Coalesce() const {
+  return Tensor(impl_->Coalesce());
+}
+
+#ifdef HAVE_NCCL
+std::unique_ptr<StreamGuard> Tensor::DynamicCudaStreamGuard(
+    cudaStream_t cuda_stream, int8_t device_index) const {
+  return impl_->DynamicCudaStreamGuard(cuda_stream, device_index);
+}
+
+#endif
+
 Tensor Tensor::DynamicZero(const Shape& shape, ElementType element_type) const {
   return Tensor(impl_->DynamicZero(shape, element_type));
 }

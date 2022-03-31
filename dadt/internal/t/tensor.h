@@ -76,6 +76,15 @@ public:
     return (T*)Ptr();
   }
 
+  Tensor Transpose(int64_t dim0, int64_t dim1) const;
+
+  Tensor Coalesce() const;
+
+#ifdef HAVE_NCCL
+  std::unique_ptr<StreamGuard> DynamicCudaStreamGuard(
+      cudaStream_t cuda_stream, int8_t device_index) const;
+#endif
+
   // Dynamic means the returned Tensor is the same impl type with this.
   // Like If this Tensor contains a PytorchTensorImpl then it will returned a
   // PytorchTensorImpl as impl_.

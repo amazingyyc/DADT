@@ -1,0 +1,8 @@
+BasedOnStyle: Google
+DerivePointerAlignment: false
+IncludeBlocks: Regroup
+SortIncludes: true
+AccessModifierOffset: -2
+AllowShortFunctionsOnASingleLine: false
+AlignEscapedNewlines: DontAlign
+CommentPragmas:  '^\\.+'

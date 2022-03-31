@@ -22,9 +22,6 @@ private:
   void FlattenIndexBack(int64_t index, const Shape& shape, int64_t* dims,
                         int64_t stride);
 
-  void AllGatherV(const Context& context, const std::vector<int64_t>& vec,
-                  std::vector<int64_t>* all_vec);
-
   Tensor DoImpl(const Context& context, const Tensor& coo_t);
 
 public:

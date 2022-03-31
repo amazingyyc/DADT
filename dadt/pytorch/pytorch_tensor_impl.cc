@@ -1,5 +1,9 @@
 #include "pytorch_tensor_impl.h"
 
+#ifdef HAVE_NCCL
+#include "pytorch_cuda_stream_guard.h"
+#endif
+
 #include "pytorch_utils.h"
 
 namespace dadt {
@@ -7,34 +11,11 @@ namespace pytorch {
 
 PytorchTensorImpl::PytorchTensorImpl(torch::Tensor torch_tensor)
     : torch_tensor_(torch_tensor) {
-  if (torch_tensor_.is_cuda()) {
-#ifdef HAVE_NCCL
-    CUDA_CALL(cudaEventCreate(&cuda_event_));
-#else
-    RUNTIME_ERROR("DADT build without CUDA but got a CUDA tensor");
-#endif
-  }
-}
-
-PytorchTensorImpl::~PytorchTensorImpl() {
-  if (torch_tensor_.is_cuda()) {
-#ifdef HAVE_NCCL
-    cudaEventDestroy(cuda_event_);
-#else
-    RUNTIME_ERROR("DADT build without CUDA but got a CUDA tensor");
-#endif
-  }
 }
 
 torch::Tensor PytorchTensorImpl::torch_tensor() const {
   return torch_tensor_;
 }
-
-#ifdef HAVE_NCCL
-cudaEvent_t PytorchTensorImpl::cuda_event() const {
-  return cuda_event_;
-}
-#endif
 
 bool PytorchTensorImpl::IsCoo() const {
   return torch_tensor_.layout() == torch::kSparse;
@@ -110,6 +91,28 @@ void* PytorchTensorImpl::Ptr() {
 void* PytorchTensorImpl::Ptr() const {
   return torch_tensor_.data_ptr();
 }
+
+std::shared_ptr<TensorImpl> PytorchTensorImpl::Transpose(int64_t dim0,
+                                                         int64_t dim1) const {
+  auto tensor_t = torch_tensor_.transpose(dim0, dim1);
+
+  return std::make_shared<PytorchTensorImpl>(tensor_t);
+}
+
+std::shared_ptr<TensorImpl> PytorchTensorImpl::Coalesce() const {
+  auto new_tensor = torch_tensor_.coalesce();
+
+  return std::make_shared<PytorchTensorImpl>(new_tensor);
+}
+
+#ifdef HAVE_NCCL
+// Return a cuda stream guard.
+std::unique_ptr<StreamGuard> PytorchTensorImpl::DynamicCudaStreamGuard(
+    cudaStream_t cuda_stream, int8_t device_index) const {
+  return std::unique_ptr<PytorchCudaStreamGuard>(
+      new PytorchCudaStreamGuard(cuda_stream, device_index));
+}
+#endif
 
 std::shared_ptr<TensorImpl> PytorchTensorImpl::DynamicZero(
     const Shape& shape, ElementType element_type) const {

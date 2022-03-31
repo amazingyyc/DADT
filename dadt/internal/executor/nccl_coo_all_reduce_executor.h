@@ -10,20 +10,18 @@
 namespace dadt {
 
 // nccl all reduce
-class NCCLAllReduceExecutor : public ITaskExecutor {
+class NCCLCooAllReduceExecutor : public ITaskExecutor {
 private:
-  // a gpu buffer
-  Buffer buffer_;
-
   // use a event wait all reduce finish
   cudaEvent_t finish_event_;
 
 public:
-  // gpu_device_id: gpu device
-  // buffer_size: buffer size
-  NCCLAllReduceExecutor(Device* gpu_device, size_t buffer_size = 67108864);
+  NCCLCooAllReduceExecutor();
 
-  ~NCCLAllReduceExecutor();
+  ~NCCLCooAllReduceExecutor();
+
+private:
+  Tensor DoImpl(const Context& context, const Tensor& coo_t);
 
 public:
   void Do(const Context& context, const std::vector<Task>& tasks) override;

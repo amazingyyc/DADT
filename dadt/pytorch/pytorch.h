@@ -26,12 +26,6 @@ void Barrier();
 
 void LocalBarrier();
 
-// torch::Tensor BroadCastCpu(uint32_t id, torch::Tensor input);
-
-// #ifdef HAVE_NCCL
-// torch::Tensor BroadCastGpu(uint32_t id, torch::Tensor input);
-// #endif
-
 torch::Tensor BroadCast(uint32_t id, torch::Tensor input);
 
 torch::Tensor AllReduce(uint32_t id, torch::Tensor input);

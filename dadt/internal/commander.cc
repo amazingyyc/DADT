@@ -24,6 +24,7 @@
 #ifdef HAVE_NCCL
 #include "executor/nccl_all_reduce_executor.h"
 #include "executor/nccl_broad_cast_executor.h"
+#include "executor/nccl_coo_all_reduce_executor.h"
 #endif
 
 namespace dadt {
@@ -136,10 +137,15 @@ void Commander::Setup(const Config& config) {
         std::unique_ptr<NCCLBroadCastExecutor>(new NCCLBroadCastExecutor()));
 
     // AllReduce executor.
-    // task_executors_.emplace(
-    //     kAllReduceTaskType,
-    //     std::unique_ptr<NCCLAllReduceExecutor>(new NCCLAllReduceExecutor(
-    //         gpu_device, context_.all_reduce_buffer_size)));
+    task_executors_.emplace(
+        kAllReduceTaskType,
+        std::unique_ptr<NCCLAllReduceExecutor>(new NCCLAllReduceExecutor(
+            gpu_device, context_.all_reduce_buffer_size)));
+
+    // CooAllReduce executor.
+    task_executors_.emplace(kCooAllReduceTaskType,
+                            std::unique_ptr<NCCLCooAllReduceExecutor>(
+                                new NCCLCooAllReduceExecutor()));
 #else
     RUNTIME_ERROR("DADT not build with CUDA, but executor type is 'nccl'");
 #endif

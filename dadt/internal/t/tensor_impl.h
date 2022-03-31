@@ -2,6 +2,12 @@
 
 #include <cinttypes>
 
+#ifdef HAVE_NCCL
+#include <cuda_runtime.h>
+#include <nccl.h>
+#endif
+
+#include "common/stream_guard.h"
 #include "t/element_type.h"
 #include "t/shape.h"
 
@@ -59,6 +65,18 @@ public:
   // get memory pointer
   virtual void* Ptr() = 0;
   virtual void* Ptr() const = 0;
+
+  virtual std::shared_ptr<TensorImpl> Transpose(int64_t dim0,
+                                                int64_t dim1) const = 0;
+
+  // For sparse coo.
+  virtual std::shared_ptr<TensorImpl> Coalesce() const = 0;
+
+#ifdef HAVE_NCCL
+  // Return a cuda stream guard.
+  virtual std::unique_ptr<StreamGuard> DynamicCudaStreamGuard(
+      cudaStream_t cuda_stream, int8_t device_index) const = 0;
+#endif
 
   virtual std::shared_ptr<TensorImpl> DynamicZero(
       const Shape& shape, ElementType element_type) const = 0;

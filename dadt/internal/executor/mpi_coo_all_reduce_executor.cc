@@ -35,41 +35,6 @@ void MPICooAllReduceExecutor::FlattenIndexBack(int64_t index,
   }
 }
 
-void MPICooAllReduceExecutor::AllGatherV(const Context& context,
-                                         const std::vector<int64_t>& vec,
-                                         std::vector<int64_t>* all_vec) {
-  std::vector<uint64_t> counts(context.world_size);
-  counts[context.world_rank] = vec.size();
-
-  MPI_CALL(MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, counts.data(), 1,
-                         MPI_UINT64_T, context.world_comm));
-
-  uint64_t total_count = 0;
-  for (auto i : counts) {
-    total_count += i;
-  }
-
-  all_vec->clear();
-  all_vec->resize(total_count);
-
-  std::vector<int> recvcounts(context.world_size);
-  std::vector<int> displs(context.world_size);
-
-  for (int i = 0; i < context.world_size; ++i) {
-    recvcounts[i] = counts[i];
-
-    if (0 == i) {
-      displs[i] = 0;
-    } else {
-      displs[i] = displs[i - 1] + recvcounts[i - 1];
-    }
-  }
-
-  MPI_CALL(MPI_Allgatherv(vec.data(), (int)vec.size(), MPI_INT64_T,
-                          all_vec->data(), recvcounts.data(), displs.data(),
-                          MPI_INT64_T, context.world_comm));
-}
-
 Tensor MPICooAllReduceExecutor::DoImpl(const Context& context,
                                        const Tensor& coo_t) {
   int64_t M = coo_t.SparseDim();
@@ -77,8 +42,8 @@ Tensor MPICooAllReduceExecutor::DoImpl(const Context& context,
 
   // indices shape:(M, nnz)
   // values shape: (nnz,) + coo_t.shape[M : M + K]
-  Tensor indices = coo_t.Indices();
-  Tensor values = coo_t.Values();
+  const Tensor& indices = coo_t.Indices();
+  const Tensor& values = coo_t.Values();
 
   ARGUMENT_CHECK(indices.element_type().Is<int64_t>(),
                  "Coo's indices must int64.");
@@ -117,8 +82,7 @@ Tensor MPICooAllReduceExecutor::DoImpl(const Context& context,
     }
   }
 
-  std::vector<int64_t> all_ids;
-  AllGatherV(context, ids, &all_ids);
+  std::vector<int64_t> all_ids = AllGatherV(context, ids);
 
   // For now we has get all ids from all rank
   // Let's remove duplicate and sort.
@@ -173,16 +137,20 @@ Tensor MPICooAllReduceExecutor::DoImpl(const Context& context,
 
 void MPICooAllReduceExecutor::Do(const Context& context,
                                  const std::vector<Task>& tasks) {
+  if (tasks.empty()) {
+    return;
+  }
+
   for (const auto& task : tasks) {
+    if (task.before) {
+      task.before();
+    }
+
     const Tensor& coo_t = task.l_tensor->tensor();
 
     ARGUMENT_CHECK(
         coo_t.IsCoo() && coo_t.IsCpu() && coo_t.IsCoalesced(),
         "MPICooAllReduce need tensor is Coo, CPU and must be coalesced");
-
-    if (task.before) {
-      task.before();
-    }
 
     Tensor new_coo_t = DoImpl(context, coo_t);
     task.l_tensor->ResetTensor(new_coo_t);

@@ -34,8 +34,6 @@ public:
   const std::vector<int64_t>& dims() const;
   const std::vector<int64_t>& strides() const;
 
-  bool IsScalar() const;
-
   int64_t NDims() const;
 
   int64_t Size() const;

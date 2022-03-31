@@ -11,43 +11,6 @@ MPIAllReduceExecutor::MPIAllReduceExecutor(Device* cpu_device,
   buffer_.Reserve(buffer_size);
 }
 
-// split tasks to MergeUnit
-std::vector<MergeUnit> MPIAllReduceExecutor::SplitTasks(
-    const std::vector<Task>& tasks, size_t buffer_size) {
-  std::vector<MergeUnit> merge_units;
-
-  for (size_t i = 0; i < tasks.size();) {
-    if (tasks[i].l_tensor->tensor().NumBytes() >= buffer_size) {
-      MergeUnit unit;
-      unit.begin = i;
-      unit.end = i + 1;
-
-      merge_units.emplace_back(unit);
-      i += 1;
-    } else {
-      size_t cur_size = 0;
-      size_t j = i;
-
-      for (; j < tasks.size(); ++j) {
-        if (cur_size + tasks[j].l_tensor->tensor().NumBytes() > buffer_size) {
-          break;
-        }
-
-        cur_size += tasks[j].l_tensor->tensor().NumBytes();
-      }
-
-      MergeUnit unit;
-      unit.begin = i;
-      unit.end = j;
-
-      merge_units.emplace_back(unit);
-      i = j;
-    }
-  }
-
-  return merge_units;
-}
-
 void MPIAllReduceExecutor::Do(const Context& context,
                               const std::vector<Task>& tasks) {
   if (tasks.empty()) {

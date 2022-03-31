@@ -3,13 +3,7 @@
 import torch
 import dadt.pytorch as dadt
 
-config = dadt.Config()
-config.cycle_duration_ms = 3
-config.broad_cast_executor = 'mpi'
-config.all_reduce_executor = 'mpi'
-config.all_reduce_buffer_size = 64 * 1024 * 1024
-
-dadt.initialize(config)
+dadt.initialize()
 
 if 0 == dadt.rank():
   x = torch.tensor([1, 2, 3, 4])
