@@ -4,9 +4,10 @@
 
 #include "t/element_type.h"
 #include "t/shape.h"
-#include "t/tensor_impl.h"
 
 namespace dadt {
+
+class TensorImpl;
 
 class Tensor {
 private:
@@ -15,54 +16,31 @@ private:
 public:
   explicit Tensor(std::shared_ptr<TensorImpl> impl);
 
-  virtual ~Tensor() = default;
+  ~Tensor() = default;
 
 public:
   std::shared_ptr<TensorImpl> impl() const;
 
-  bool IsCoo() const;
-
-  // Works for Coo tensor.
-  Tensor Indices() const;
-
-  // Works for Coo tensor.
-  Tensor Values() const;
-
-  int64_t SparseDim() const;
-
-  int64_t DenseDim() const;
-
-  // Non zero count of Coo.
-  int64_t nnz() const;
-
-  bool IsCoalesced() const;
-
   bool IsDense() const;
 
-  // return GPU device id is CPU return -1
-  int DeviceId() const;
+  bool IsCoo() const;
 
-  // Whether the memory is continues
-  bool IsContiguous() const;
-
-  // whether is a cpu tensor
   bool IsCpu() const;
 
-  // whether is a cuda tensor
   bool IsCuda() const;
 
-  // The element type
+  int DeviceId() const;
+
+  bool IsContiguous() const;
+
   ElementType element_type() const;
 
   Shape shape() const;
 
-  // Get tensor element count
   int64_t Size() const;
 
-  // Memory size
   size_t NumBytes() const;
 
-  // get memory pointer
   void* Ptr();
   void* Ptr() const;
 
@@ -76,23 +54,27 @@ public:
     return (T*)Ptr();
   }
 
-  Tensor Transpose(int64_t dim0, int64_t dim1) const;
+  int64_t sparse_dim() const;
 
-  Tensor Coalesce() const;
+  // The dense dimension, only for Coo tensor.
+  int64_t dense_dim() const;
 
-#ifdef HAVE_NCCL
-  std::unique_ptr<StreamGuard> DynamicCudaStreamGuard(
-      cudaStream_t cuda_stream, int8_t device_index) const;
-#endif
+  int64_t nnz() const;
+
+  bool is_coalesced() const;
+
+  const Tensor& indices() const;
+
+  const Tensor& values() const;
 
   // Dynamic means the returned Tensor is the same impl type with this.
-  // Like If this Tensor contains a PytorchTensorImpl then it will returned a
+  // Like If this Tensor contains a PytorchTensorImpl then it will returned
   // PytorchTensorImpl as impl_.
   Tensor DynamicZero(const Shape& shape, ElementType element_type) const;
 
-  // The indices/values/this must has same implement type.
-  Tensor DynamicCoo(const Tensor& indices, const Tensor& values,
-                    const Shape& shape) const;
+public:
+  static Tensor CooTensor(const Tensor& indices, const Tensor& values,
+                          const Shape& shape, bool is_coalesced);
 };
 
 }  // namespace dadt

@@ -38,7 +38,7 @@ MPI_Datatype ITaskExecutor::MpiDataType(const Context& context,
   }
 }
 
-std::vector<int64_t> ITaskExecutor::AllGatherV(
+std::vector<int64_t> ITaskExecutor::MpiAllGatherV(
     const Context& context, const std::vector<int64_t>& vec) {
   std::vector<int64_t> all_vec;
 
@@ -102,34 +102,34 @@ ncclDataType_t ITaskExecutor::NcclDataType(ElementType element_type) {
   }
 }
 
-Tensor ITaskExecutor::AllGatherAndCatTensor(const Context& context,
-                                            const Tensor& input) {
+Tensor ITaskExecutor::NcclAllGatherAndCatTensor(const Context& context,
+                                                const Tensor& input) {
   ARGUMENT_CHECK(input.shape().NDims() >= 1,
-                 "AllGatherAndCatTensor need tensor ndims >= 1");
+                 "NcclAllGatherAndCatTensor need tensor ndims >= 1");
 
-  Shape in_shape = input.shape();
+  Shape input_shape = input.shape();
 
   // The tensor from all rank must has same shape except the first dimension.
   std::vector<int64_t> first_dims(context.world_size);
-  first_dims[context.world_rank] = in_shape[0];
+  first_dims[context.world_rank] = input_shape[0];
 
   MPI_CALL(MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, first_dims.data(),
                          1, MPI_INT64_T, context.world_comm));
 
-  std::vector<int64_t> out_dims = in_shape.dims();
-  out_dims[0] = 0;
+  std::vector<int64_t> output_dims = input_shape.dims();
+  output_dims[0] = 0;
   for (auto i : first_dims) {
-    out_dims[0] += i;
+    output_dims[0] += i;
   }
 
   auto element_type = input.element_type();
 
-  Shape out_shape(out_dims);
+  Shape output_shape(output_dims);
 
   // We create a output tensor to accept the gather data.
-  Tensor output = input.DynamicZero(out_shape, element_type);
+  Tensor output = input.DynamicZero(output_shape, element_type);
 
-  int64_t stride = in_shape.Stride(0);
+  int64_t stride = input_shape.Stride(0);
 
   std::vector<int64_t> counts(context.world_size);
   for (int i = 0; i < context.world_size; ++i) {

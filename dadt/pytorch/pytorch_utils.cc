@@ -1,6 +1,9 @@
 #include "pytorch_utils.h"
 
+#include <memory>
+
 #include "common/exception.h"
+#include "pytorch_tensor_impl.h"
 
 namespace dadt {
 namespace pytorch {
@@ -52,13 +55,39 @@ torch::Dtype ElementTypeToTorchDType(ElementType etype) {
 }
 
 Shape TorchSizesToShape(const torch::IntArrayRef& sizes) {
-  std::vector<int64_t> dims = sizes.vec();
-  return Shape(dims);
+  std::vector<int64_t> dims(sizes.size());
+  for (size_t i = 0; i < sizes.size(); ++i) {
+    dims[i] = sizes[i];
+  }
+
+  return Shape(std::move(dims));
 }
 
-torch::IntArrayRef ShapeToTorchSizes(const Shape& shape) {
-  const auto& dims = shape.dims();
-  return torch::IntArrayRef(dims);
+Tensor CooTensorFromTorch(const torch::Tensor& coo_t) {
+  // Transpose from: [sparse_dim, nnz] to [nnz, sparse_dim].
+  Tensor indices = Tensor(std::make_shared<PytorchTensorImpl>(
+      coo_t.indices().transpose(0, 1).contiguous()));
+  Tensor values =
+      Tensor(std::make_shared<PytorchTensorImpl>(coo_t.values().contiguous()));
+
+  Shape shape = TorchSizesToShape(coo_t.sizes());
+
+  return Tensor::CooTensor(indices, values, shape, coo_t.is_coalesced());
+}
+
+torch::Tensor CooTensorToTorch(const Tensor& coo_t) {
+  auto indices = dynamic_cast<PytorchTensorImpl*>(coo_t.indices().impl().get())
+                     ->torch_tensor();
+  auto values = dynamic_cast<PytorchTensorImpl*>(coo_t.values().impl().get())
+                    ->torch_tensor();
+
+  Shape shape = coo_t.shape();
+
+  // The IntArrayRef doesn't own the storage.
+  torch::IntArrayRef sizes(shape.dims());
+
+  return torch::sparse_coo_tensor(indices.transpose(0, 1), values, sizes)
+      .coalesce();
 }
 
 }  // namespace pytorch

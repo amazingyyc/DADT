@@ -1,5 +1,8 @@
 #include "t/tensor.h"
 
+#include "t/coo_tensor_impl.h"
+#include "t/tensor_impl.h"
+
 namespace dadt {
 
 Tensor::Tensor(std::shared_ptr<TensorImpl> impl) : impl_(impl) {
@@ -9,44 +12,12 @@ std::shared_ptr<TensorImpl> Tensor::impl() const {
   return impl_;
 }
 
-bool Tensor::IsCoo() const {
-  return impl_->IsCoo();
-}
-
-Tensor Tensor::Indices() const {
-  return Tensor(impl_->Indices());
-}
-
-Tensor Tensor::Values() const {
-  return Tensor(impl_->Values());
-}
-
-int64_t Tensor::SparseDim() const {
-  return impl_->SparseDim();
-}
-
-int64_t Tensor::DenseDim() const {
-  return impl_->DenseDim();
-}
-
-int64_t Tensor::nnz() const {
-  return impl_->nnz();
-}
-
-bool Tensor::IsCoalesced() const {
-  return impl_->IsCoalesced();
-}
-
 bool Tensor::IsDense() const {
   return impl_->IsDense();
 }
 
-int Tensor::DeviceId() const {
-  return impl_->DeviceId();
-}
-
-bool Tensor::IsContiguous() const {
-  return impl_->IsContiguous();
+bool Tensor::IsCoo() const {
+  return impl_->IsCoo();
 }
 
 bool Tensor::IsCpu() const {
@@ -55,6 +26,14 @@ bool Tensor::IsCpu() const {
 
 bool Tensor::IsCuda() const {
   return impl_->IsCuda();
+}
+
+int Tensor::DeviceId() const {
+  return impl_->DeviceId();
+}
+
+bool Tensor::IsContiguous() const {
+  return impl_->IsContiguous();
 }
 
 ElementType Tensor::element_type() const {
@@ -81,31 +60,40 @@ void* Tensor::Ptr() const {
   return impl_->Ptr();
 }
 
-Tensor Tensor::Transpose(int64_t dim0, int64_t dim1) const {
-  return Tensor(impl_->Transpose(dim0, dim1));
+int64_t Tensor::sparse_dim() const {
+  return impl_->sparse_dim();
 }
 
-Tensor Tensor::Coalesce() const {
-  return Tensor(impl_->Coalesce());
+int64_t Tensor::dense_dim() const {
+  return impl_->dense_dim();
 }
 
-#ifdef HAVE_NCCL
-std::unique_ptr<StreamGuard> Tensor::DynamicCudaStreamGuard(
-    cudaStream_t cuda_stream, int8_t device_index) const {
-  return impl_->DynamicCudaStreamGuard(cuda_stream, device_index);
+int64_t Tensor::nnz() const {
+  return impl_->nnz();
 }
 
-#endif
+bool Tensor::is_coalesced() const {
+  return impl_->is_coalesced();
+}
+
+const Tensor& Tensor::indices() const {
+  return impl_->indices();
+}
+
+const Tensor& Tensor::values() const {
+  return impl_->values();
+}
 
 Tensor Tensor::DynamicZero(const Shape& shape, ElementType element_type) const {
   return Tensor(impl_->DynamicZero(shape, element_type));
 }
 
-Tensor Tensor::DynamicCoo(const Tensor& indices, const Tensor& values,
-                          const Shape& shape) const {
-  auto cool_impl = impl_->DynamicCoo(indices.impl_, values.impl_, shape);
+Tensor Tensor::CooTensor(const Tensor& indices, const Tensor& values,
+                                const Shape& shape, bool is_coalesced) {
+  auto impl =
+      std::make_shared<CooTensorImpl>(indices, values, shape, is_coalesced);
 
-  return Tensor(cool_impl);
+  return Tensor(impl);
 }
 
 }  // namespace dadt

@@ -12,12 +12,10 @@ if 0 == dadt.rank():
 else:
   x = torch.tensor([5, 4, 3, 2], device=device)
 
-y = dadt.broad_cast(0, x)
-
+y = dadt.all_reduce(0, x)
 print(dadt.rank(), y)
 
-y = dadt.broad_cast(0, x)
-
+y = dadt.all_reduce(0, x)
 print(dadt.rank(), y)
 
 dadt.shutdown()

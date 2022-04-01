@@ -2,14 +2,11 @@
 
 #include <cinttypes>
 
-#ifdef HAVE_NCCL
-#include <cuda_runtime.h>
-#include <nccl.h>
-#endif
-
+#include "common/exception.h"
 #include "common/stream_guard.h"
 #include "t/element_type.h"
 #include "t/shape.h"
+#include "t/tensor.h"
 
 namespace dadt {
 
@@ -17,73 +14,72 @@ class TensorImpl {
 public:
   virtual ~TensorImpl() = default;
 
-  virtual bool IsCoo() const = 0;
-
-  // Works for Coo tensor.
-  virtual std::shared_ptr<TensorImpl> Indices() const = 0;
-
-  // Works for Coo tensor.
-  virtual std::shared_ptr<TensorImpl> Values() const = 0;
-
-  // Works for Coo tensor.
-  virtual int64_t SparseDim() const = 0;
-
-  // Works for Coo tensor.
-  virtual int64_t DenseDim() const = 0;
-
-  // Works for Coo tensor.
-  virtual int64_t nnz() const = 0;
-
-  // Works for Coo tensor.
-  virtual bool IsCoalesced() const = 0;
-
+  // Whether is Dense tensor.
   virtual bool IsDense() const = 0;
 
-  // return GPU device id is CPU return -1
-  virtual int DeviceId() const = 0;
+  // Whether is Coo tensor.
+  virtual bool IsCoo() const = 0;
 
-  // Whether the memory is continues
-  virtual bool IsContiguous() const = 0;
-
-  // whether is a cpu tensor
+  // whether is a cpu tensor, for Coo the indices and values must on same
+  // device.
   virtual bool IsCpu() const = 0;
 
-  // whether is a cuda tensor
+  // whether is a cuda tensor, for Coo the indices and values must on same
+  // device.
   virtual bool IsCuda() const = 0;
 
-  // The element type
+  // The device id: only for Dense Tensor.
+  virtual int DeviceId() const = 0;
+
+  // Whether the memory is continues, only for Dense Tensor.
+  virtual bool IsContiguous() const = 0;
+
+  // The element type, only for Dense Tensor.
   virtual ElementType element_type() const = 0;
 
+  // The tensor shape, only for Dense Tensor.
   virtual Shape shape() const = 0;
 
-  // Get tensor element count
+  // Get tensor element count, only for Dense Tensor.
   virtual int64_t Size() const = 0;
 
-  // Memory size
+  // Memory bytes, only for Dense Tensor.
   virtual size_t NumBytes() const = 0;
 
-  // get memory pointer
+  // Memory pointer, only for Dense Tensor.
   virtual void* Ptr() = 0;
   virtual void* Ptr() const = 0;
 
-  virtual std::shared_ptr<TensorImpl> Transpose(int64_t dim0,
-                                                int64_t dim1) const = 0;
+  // The sparse dimension, only for Coo tensor.
+  virtual int64_t sparse_dim() const {
+    RUNTIME_ERROR("UnSupport funciton");
+  }
 
-  // For sparse coo.
-  virtual std::shared_ptr<TensorImpl> Coalesce() const = 0;
+  // The dense dimension, only for Coo tensor.
+  virtual int64_t dense_dim() const {
+    RUNTIME_ERROR("UnSupport funciton");
+  }
 
-#ifdef HAVE_NCCL
-  // Return a cuda stream guard.
-  virtual std::unique_ptr<StreamGuard> DynamicCudaStreamGuard(
-      cudaStream_t cuda_stream, int8_t device_index) const = 0;
-#endif
+  // The none zero count, only for Coo tensor.
+  virtual int64_t nnz() const {
+    RUNTIME_ERROR("UnSupport funciton");
+  }
+
+  // Whether coalesced, Only for Coo tensor.
+  virtual bool is_coalesced() const {
+    RUNTIME_ERROR("UnSupport funciton");
+  }
+
+  virtual const Tensor& indices() const {
+    RUNTIME_ERROR("UnSupport funciton");
+  }
+
+  virtual const Tensor& values() const {
+    RUNTIME_ERROR("UnSupport funciton");
+  }
 
   virtual std::shared_ptr<TensorImpl> DynamicZero(
       const Shape& shape, ElementType element_type) const = 0;
-
-  virtual std::shared_ptr<TensorImpl> DynamicCoo(
-      std::shared_ptr<TensorImpl> indices, std::shared_ptr<TensorImpl> values,
-      const Shape& shape) const = 0;
 };
 
 }  // namespace dadt

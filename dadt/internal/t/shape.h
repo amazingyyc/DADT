@@ -15,7 +15,8 @@ private:
 public:
   Shape() = default;
 
-  explicit Shape(const Shape& other);
+  Shape(const Shape& other);
+
   explicit Shape(const std::vector<int64_t>& dims);
   explicit Shape(std::vector<int64_t>&& dims);
 

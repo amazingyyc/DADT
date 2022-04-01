@@ -5,6 +5,7 @@
 
 #include "t/element_type.h"
 #include "t/shape.h"
+#include "t/tensor.h"
 
 namespace dadt {
 namespace pytorch {
@@ -15,7 +16,9 @@ torch::Dtype ElementTypeToTorchDType(ElementType etype);
 
 Shape TorchSizesToShape(const torch::IntArrayRef& sizes);
 
-torch::IntArrayRef ShapeToTorchSizes(const Shape& shape);
+Tensor CooTensorFromTorch(const torch::Tensor& coo_t);
+
+torch::Tensor CooTensorToTorch(const Tensor& coo_t);
 
 }  // namespace pytorch
 }  // namespace dadt

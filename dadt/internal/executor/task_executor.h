@@ -27,15 +27,15 @@ public:
   // get mpi data type by element type
   MPI_Datatype MpiDataType(const Context& context, ElementType element_type);
 
-  std::vector<int64_t> AllGatherV(const Context& context,
-                                  const std::vector<int64_t>& vec);
+  std::vector<int64_t> MpiAllGatherV(const Context& context,
+                                     const std::vector<int64_t>& vec);
 
 #ifdef HAVE_NCCL
   ncclDataType_t NcclDataType(ElementType element_type);
 
   // Gather tensor from all rank and concate them together.
   // Like: output = concate(input[0], input[1], ..., input[rank], dim=0)
-  Tensor AllGatherAndCatTensor(const Context& context, const Tensor& input);
+  Tensor NcclAllGatherAndCatTensor(const Context& context, const Tensor& input);
 
 #endif
 

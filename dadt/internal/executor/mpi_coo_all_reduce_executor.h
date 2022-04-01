@@ -17,10 +17,9 @@ public:
   MPICooAllReduceExecutor();
 
 private:
-  int64_t FlattenIndex(const Shape& shape, int64_t* dims, int64_t stride);
+  int64_t FlattenIndex(const Shape& shape, int64_t* dims);
 
-  void FlattenIndexBack(int64_t index, const Shape& shape, int64_t* dims,
-                        int64_t stride);
+  void FlattenIndexBack(int64_t index, const Shape& shape, int64_t* dims);
 
   Tensor DoImpl(const Context& context, const Tensor& coo_t);
 
