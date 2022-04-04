@@ -89,7 +89,7 @@ Tensor Tensor::DynamicZero(const Shape& shape, ElementType element_type) const {
 }
 
 Tensor Tensor::CooTensor(const Tensor& indices, const Tensor& values,
-                                const Shape& shape, bool is_coalesced) {
+                         const Shape& shape, bool is_coalesced) {
   auto impl =
       std::make_shared<CooTensorImpl>(indices, values, shape, is_coalesced);
 

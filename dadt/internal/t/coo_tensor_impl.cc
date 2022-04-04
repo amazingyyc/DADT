@@ -11,7 +11,6 @@ CooTensorImpl::CooTensorImpl(const Tensor& indices, const Tensor& values,
       values_(values),
       shape_(shape),
       is_coalesced_(is_coalesced) {
-  ARGUMENT_CHECK(is_coalesced_, "CooTensor need is_coalesced is true");
   ARGUMENT_CHECK(indices_.DeviceId() == values_.DeviceId(),
                  "CooTensor need indices/values on same device");
   ARGUMENT_CHECK(indices_.IsDense() && values_.IsDense(),

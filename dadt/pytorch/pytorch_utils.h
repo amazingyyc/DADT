@@ -18,6 +18,9 @@ Shape TorchSizesToShape(const torch::IntArrayRef& sizes);
 
 Tensor CooTensorFromTorch(const torch::Tensor& coo_t);
 
+// Like CooTensorFromTorch but clone the tensor.
+Tensor CooTensorFromTorchClone(const torch::Tensor& coo_t);
+
 torch::Tensor CooTensorToTorch(const Tensor& coo_t);
 
 }  // namespace pytorch

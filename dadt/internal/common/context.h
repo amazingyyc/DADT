@@ -3,6 +3,7 @@
 #include <mpi.h>
 
 #include <atomic>
+#include <string>
 
 #ifdef HAVE_NCCL
 #include <cuda_runtime.h>

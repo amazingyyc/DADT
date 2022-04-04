@@ -16,6 +16,7 @@ from dadt_pytorch import all_reduce
 from dadt_pytorch import all_reduce_async
 from dadt_pytorch import coo_all_reduce
 from dadt_pytorch import coo_all_reduce_async
+from .distributed_optimizer import DistributedOptimizer
 
 
 def initialize(cycle_duration_ms=5,

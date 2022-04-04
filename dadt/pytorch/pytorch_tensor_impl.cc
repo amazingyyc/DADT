@@ -32,7 +32,8 @@ bool PytorchTensorImpl::IsCoo() const {
 }
 
 bool PytorchTensorImpl::IsCpu() const {
-  return torch_tensor_.is_cpu();
+  // Not call is_cpu(), Compitable with pytorch old version.
+  return torch_tensor_.device().type() == at::DeviceType::CPU;
 }
 
 bool PytorchTensorImpl::IsCuda() const {
@@ -70,6 +71,7 @@ size_t PytorchTensorImpl::NumBytes() const {
 void* PytorchTensorImpl::Ptr() {
   return torch_tensor_.data_ptr();
 }
+
 void* PytorchTensorImpl::Ptr() const {
   return torch_tensor_.data_ptr();
 }
@@ -96,20 +98,6 @@ std::shared_ptr<TensorImpl> PytorchTensorImpl::DynamicZero(
 
   return std::make_shared<PytorchTensorImpl>(tensor);
 }
-
-// std::shared_ptr<TensorImpl> PytorchTensorImpl::DynamicCoo(
-//     std::shared_ptr<TensorImpl> indices, std::shared_ptr<TensorImpl> values,
-//     const Shape& shape) const {
-//   auto* indices_p = dynamic_cast<PytorchTensorImpl*>(indices.get());
-//   auto* values_p = dynamic_cast<PytorchTensorImpl*>(values.get());
-
-//   torch::Tensor coo_tensor =
-//   torch::sparse_coo_tensor(indices_p->torch_tensor_,
-//                                                       values_p->torch_tensor_,
-//                                                       ShapeToTorchSizes(shape));
-
-//   return std::make_shared<PytorchTensorImpl>(coo_tensor);
-// }
 
 }  // namespace pytorch
 }  // namespace dadt

@@ -414,8 +414,8 @@ torch::Tensor CooAllReduceAsyncCpu(uint32_t id, torch::Tensor input) {
 
     // At here must clone the input or will be "hang" when release the pytorch
     // tensor. I do't know why.
-    l_tensor = std::shared_ptr<LockTensor>(
-        new LockTensor(LockTensorStatus::kInFetch, CooTensorFromTorch(input)));
+    l_tensor = std::shared_ptr<LockTensor>(new LockTensor(
+        LockTensorStatus::kInFetch, CooTensorFromTorchClone(input)));
 
     commander.InsertLTensor(key, l_tensor);
   } else {
@@ -430,7 +430,7 @@ torch::Tensor CooAllReduceAsyncCpu(uint32_t id, torch::Tensor input) {
     // Put current input into the LockTensor.
     // At here must clone the input or will be "hang" when release the pytorch
     // tensor. I do't know why.
-    l_tensor->ResetTensor(CooTensorFromTorch(input));
+    l_tensor->ResetTensor(CooTensorFromTorchClone(input));
   }
 
   Task task;
@@ -474,8 +474,8 @@ torch::Tensor CooAllReduceAsyncGpu(uint32_t id, torch::Tensor input) {
     output = torch::sparse_coo_tensor(
         input.indices().clone(), input.values().clone().zero_(), input.sizes());
 
-    l_tensor = std::shared_ptr<LockTensor>(
-        new LockTensor(LockTensorStatus::kInFetch, CooTensorFromTorch(input)));
+    l_tensor = std::shared_ptr<LockTensor>(new LockTensor(
+        LockTensorStatus::kInFetch, CooTensorFromTorchClone(input)));
 
     commander.InsertLTensor(key, l_tensor);
   } else {
@@ -485,7 +485,7 @@ torch::Tensor CooAllReduceAsyncGpu(uint32_t id, torch::Tensor input) {
     output = CooTensorToTorch(l_tensor->tensor());
 
     // Put current input into the LockTensor.
-    l_tensor->ResetTensor(CooTensorFromTorch(input));
+    l_tensor->ResetTensor(CooTensorFromTorchClone(input));
   }
 
   // Put a event into pytorch's CudaStream.

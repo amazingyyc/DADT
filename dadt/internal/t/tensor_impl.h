@@ -3,7 +3,6 @@
 #include <cinttypes>
 
 #include "common/exception.h"
-#include "common/stream_guard.h"
 #include "t/element_type.h"
 #include "t/shape.h"
 #include "t/tensor.h"

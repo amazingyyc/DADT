@@ -218,7 +218,7 @@ class CMakeBuildExt(build_ext):
       # add NCCL args
       nccl_header_search_folders = ['/usr/include', '/usr/local/include']
 
-      if 'NCCL_DIR' is os.environ.keys():
+      if 'NCCL_DIR' in os.environ.keys():
         nccl_header_search_folders.append(os.environ['NCCL_DIR'] + '/include')
 
       nccl_header_file_path = self.find_file_in_folders(

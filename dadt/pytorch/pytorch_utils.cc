@@ -75,6 +75,17 @@ Tensor CooTensorFromTorch(const torch::Tensor& coo_t) {
   return Tensor::CooTensor(indices, values, shape, coo_t.is_coalesced());
 }
 
+Tensor CooTensorFromTorchClone(const torch::Tensor& coo_t) {
+  Tensor indices = Tensor(std::make_shared<PytorchTensorImpl>(
+      coo_t.indices().clone().transpose(0, 1).contiguous()));
+  Tensor values = Tensor(
+      std::make_shared<PytorchTensorImpl>(coo_t.values().clone().contiguous()));
+
+  Shape shape = TorchSizesToShape(coo_t.sizes());
+
+  return Tensor::CooTensor(indices, values, shape, coo_t.is_coalesced());
+}
+
 torch::Tensor CooTensorToTorch(const Tensor& coo_t) {
   auto indices = dynamic_cast<PytorchTensorImpl*>(coo_t.indices().impl().get())
                      ->torch_tensor();
