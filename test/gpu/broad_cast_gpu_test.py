@@ -26,7 +26,7 @@ def test_broad_cast_gpu(id):
   torch.testing.assert_close(expect, real)
 
   print('------------------------------------------')
-  print('[TestBroadCastCpu Success!]')
+  print('[TestBroadCastGpu Success!]')
   print('------------------------------------------')
 
 

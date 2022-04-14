@@ -115,10 +115,7 @@ def main():
   args = parser.parse_args()
 
   # initialize dadt
-  dadt.init(
-    broad_cast_executor='nccl',
-    all_reduce_executor='nccl',
-    all_reduce_buffer_size=64*1024*1024)
+  dadt.initialize(executor_type='nccl')
 
   torch.manual_seed(args.seed)
 

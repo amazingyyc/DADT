@@ -174,6 +174,13 @@ void Commander::Setup(const Config& config) {
 }
 
 void Commander::Clear() {
+// clean NCCL.
+#ifdef HAVE_NCCL
+  if (context_.nccl_comm) {
+    NCCL_CALL(ncclCommDestroy(context_.nccl_comm));
+  }
+#endif
+
   // clean mpi
   MPI_CALL(MPI_Type_free(&context_.MPI_FLOAT16_T));
   MPI_CALL(MPI_Comm_free(&context_.cross_comm));

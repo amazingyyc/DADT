@@ -42,10 +42,16 @@ class DistributedOptimizer(object):
   def _create_grad_hook(self, id):
 
     def hook(grad):
+      new_grad = None
       if grad.is_sparse:
-        return dadt_pytorch.coo_all_reduce_async(id, grad)
+        new_grad = dadt_pytorch.coo_all_reduce_async(id, grad)
       else:
-        return dadt_pytorch.all_reduce_async(id, grad)
+        new_grad = dadt_pytorch.all_reduce_async(id, grad)
+
+      if self._avg:
+        return new_grad * self._multiplier
+      else:
+        return new_grad
 
     return hook
 

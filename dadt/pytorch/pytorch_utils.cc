@@ -31,8 +31,8 @@ ElementType TorchDTypeToElementType(torch::Dtype dtype) {
   }
 }
 
-torch::Dtype ElementTypeToTorchDType(ElementType etype) {
-  switch (etype.dtype) {
+torch::Dtype ElementTypeToTorchDType(ElementType element_type) {
+  switch (element_type.dtype) {
     case DType::kUint8:
       return torch::kUInt8;
     case DType::kInt8:
@@ -50,7 +50,7 @@ torch::Dtype ElementTypeToTorchDType(ElementType etype) {
     case DType::kFloat64:
       return torch::kFloat64;
     default:
-      RUNTIME_ERROR("The ElementType does not support:" << etype.Name());
+      RUNTIME_ERROR("The ElementType does not support:" << element_type.Name());
   }
 }
 

@@ -27,7 +27,7 @@ def test_coo_all_reduce_gpu(id):
   torch.testing.assert_close(expect, real)
 
   print('------------------------------------------')
-  print('[TestCooAllReduceCpu Success!]')
+  print('[TestCooAllReduceGpu Success!]')
   print('------------------------------------------')
 
 

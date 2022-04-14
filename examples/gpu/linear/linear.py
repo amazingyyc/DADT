@@ -11,7 +11,7 @@ class Model(nn.Module):
   def forward(self, x):
     return self.block(x)
 
-dadt.init(broad_cast_executor='nccl', all_reduce_executor='nccl')
+dadt.initialize(executor_type='nccl')
 
 torch.cuda.set_device(dadt.local_rank())
 

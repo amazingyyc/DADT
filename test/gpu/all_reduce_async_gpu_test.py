@@ -31,7 +31,7 @@ def test_all_reduce_async_gpu(id):
   torch.testing.assert_close(expect, real)
 
   print('------------------------------------------')
-  print('[TestAllReduceAsyncCpu Success!]')
+  print('[TestAllReduceAsyncGpu Success!]')
   print('------------------------------------------')
 
 
