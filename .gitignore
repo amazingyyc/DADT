@@ -11,7 +11,6 @@ test/minist/model0/
 test/minist/model1/
 test/mnist/MNIST-data/
 examples/mnist/MNIST-data/
-examples/bert/bert/__pycache__/
 examples/mnist/model1
 examples/mnist/model0
-dadt/tensorflow/__pycache__
+__pycache__
